@@ -1,0 +1,62 @@
+DEFINE  
+    VAR __DS0FilterTable =
+        TREATAS({"Business", "Economy", "Premium EC"}, 'Cabin_Master'[Cabin_Show])
+
+    VAR __DS0FilterTable2 =
+        TREATAS({"IB","YW"}, 'Company_Master'[Company])
+
+    VAR __DS0FilterTable3 =
+        TREATAS({"SH","LH"}, 'Haul_Master'[Haul_Aggr])
+
+    VAR __DS0FilterTable4 =
+        FILTER(
+            KEEPFILTERS(VALUES('Date_Master'[Date])),
+            'Date_Master'[Date] = DATE(__CURRENT_YEAR__, __CURRENT_MONTH__, __CURRENT_DAY__)
+        )
+
+    VAR __DS0FilterTable5 =
+        TREATAS({1}, 'TouchPoint_Master'[explanatory_drivers])
+
+    VAR __DS0FilterTable6 =
+        FILTER(
+            KEEPFILTERS(VALUES('TouchPoint_Master'[filtered_name])),
+            NOT(
+                'TouchPoint_Master'[filtered_name] IN {"Covid measures",
+                    "Ease of contact by IB Plus email",
+                    "Mobile App",
+                    "Response provided to the issue",
+                    "Website"}
+            )
+        )
+
+    VAR __DS0FilterTable7 =
+        TREATAS({"vs Sel. Period"}, 'Filtro_Comparativa'[Filtro_Comparativa])
+
+    VAR __DS0FilterTableSelPeriod =
+        FILTER(
+            KEEPFILTERS(VALUES('Aux_Date_Master_Selected_Period'[Date_aux])),
+            AND(
+                'Aux_Date_Master_Selected_Period'[Date_aux] >= DATE(__START_YEAR__, __START_MONTH__, __START_DAY__),
+                'Aux_Date_Master_Selected_Period'[Date_aux] < DATE(__END_YEAR__, __END_MONTH__, __END_DAY__)
+            ))
+
+    VAR __DS0Core =
+        SUMMARIZECOLUMNS(
+            'TouchPoint_Master'[filtered_name],
+            __DS0FilterTable,
+            __DS0FilterTable2,
+            __DS0FilterTable3,
+            __DS0FilterTable4,
+            __DS0FilterTable5,
+            __DS0FilterTable6,
+            __DS0FilterTable7,
+            __DS0FilterTableSelPeriod,
+            "Satisfaction diff", 'Measure'[S_client_satisfaction_diff],
+            "Satisfaction Sig", [Switch_Satisfaction_Sig_Diff],
+            "Satisfaction", 'Measure'[S_Satisfaction_label],
+            "Shapdiff", 'Measure'[S_shap_value_label_2],
+            "NPS diff", [Switch_NPS_Raw_diff]
+        )
+
+EVALUATE
+    __DS0Core 

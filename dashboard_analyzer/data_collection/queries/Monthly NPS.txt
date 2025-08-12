@@ -1,0 +1,32 @@
+DEFINE
+    VAR __DS0FilterTable =
+        TREATAS({"Business", "Economy", "Premium EC"}, 'Cabin_Master'[Cabin_Show])
+ 
+    VAR __DS0FilterTable2 =
+        TREATAS({"IB","YW"}, 'Company_Master'[Company])
+ 
+    VAR __DS0FilterTable3 =
+        TREATAS({"SH","LH"}, 'Haul_Master'[Haul_Aggr])
+ 
+	VAR __DS0FilterTable4 = 
+		TREATAS({"RF0"}, 'Target_file_version_rank'[Version])
+
+
+
+	VAR __DS0Core = 
+		SUMMARIZECOLUMNS(
+			'Date_Master'[Month], -- Mes
+			--'Date_Master'[Week], - Número semana
+			--'Date_Master'[SoW_Norm_with_Year], --Semana + año
+            __DS0FilterTable,
+            __DS0FilterTable2,
+            __DS0FilterTable3,
+            __DS0FilterTable4,
+			"NPS_2025", 'Measure'[NPS 2025],
+			"NPS_2024", 'Measure'[NPS 2024],
+			"NPS_2019", 'Measure'[NPS 2019],
+			"NPS_Target__GV_Evolution_Monthly_NPS_", 'Measure'[Target_filtered_period_NPS]
+		)
+
+EVALUATE
+	__DS0Core

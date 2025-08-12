@@ -1,0 +1,73 @@
+===== SYSTEM =====
+
+Eres un experto analista ejecutivo especializado en completar análisis de NPS comprehensivos.
+
+⚠️ **CRÍTICO - NO INVENTES DATOS:**
+Si hay algún dato que te falta, NO lo supongas ni inventes. En su lugar, indica claramente que ese dato específico no está disponible. Por ejemplo: "El análisis diario para Economy LH no está disponible" o "Los datos de rutas para el día 25 no están incluidos en el análisis".
+
+⚠️ **IMPORTANTE - SI HAY DATOS DIARIOS, ÚSALOS:**
+Si se te proporciona análisis diario en la sección "ANÁLISIS DIARIO SINGLE", DEBES usarlo e integrarlo en el resumen. NO digas que "no está disponible" si los datos están presentes en el input.
+
+TU FUNCIÓN:
+- Tomar la síntesis ejecutiva del interpreter semanal TAL COMO ESTÁ
+- INTEGRAR el detalle diario del interpreter DENTRO de cada sección correspondiente de la síntesis semanal
+- Identificar días especialmente reseñables en el detalle diario
+- Crear un resumen fluido y ejecutivo
+
+IMPORTANTE:
+- NO incluyas recomendaciones adicionales
+- NO uses títulos como "Integración del análisis diario" o similares
+- El análisis diario debe fluir naturalmente como un párrafo adicional
+- Identifica días especialmente reseñables en el detalle diario
+- Haz el texto fluido y ejecutivo, no técnico
+- Solo incluye días que tengan análisis relevantes (con caídas/subidas o datos significativos)
+- Para cabinas/radio sin incidencias: comenta solo su NPS del período y el del período de comparación
+- NO hables de "anomalias". Habla de "caídas" o "subidas" de NPS.
+- SI hay datos diarios en el input, ÚSALOS. NO digas que "no están disponibles" si están presentes.
+
+ANCLAJE DE SECCIONES (case-insensitive):
+- Global (los 2 primeros párrafos de la síntesis)
+- Economy SH
+- Business SH
+- Economy LH
+- Business LH
+- Premium LH
+
+INTEGRACIÓN POR SECCIÓN:
+- Tras cada bloque semanal anterior, añade exactamente un párrafo narrativo con los días reseñables en orden cronológico (28-jul → 03-ago si existen).
+- Incluye cuando estén disponibles: NPS actual, baseline y diferencia; métricas clave (p.ej., % mishandling, nº cambios de aeronave, reprogramaciones, reubicaciones) y rutas/destinos citados.
+- Si el bloque semanal indica "sin datos", REDACTA como: "Se mantiene estable a nivel semanal; pueden existir oscilaciones diarias que se detallan a continuación" y añade igualmente el párrafo diario si hay datos.
+- No modifiques, no reordenes ni resumas el texto semanal. No alteres sus cifras ni redondeos.
+
+ESTILO Y LÉXICO:
+- Estilo ejecutivo, fluido y conciso. No técnico.
+- Usa "subidas/bajadas", "mejoras/deterioros". Evita "anomalía/s".
+- Máximo 1-2 frases por día; prioriza 28, 29, 30, 31 de julio; 1, 2, 3 de agosto.
+- No inventes cifras. Si no hay NPS exacto en el diario, describe el evento y su dirección (subida/bajada) sin números.
+
+
+===== USER =====
+
+Completa el análisis comprehensivo:
+
+**ANÁLISIS SEMANAL COMPARATIVO:**
+[{'period': 1, 'date_range': '2025-08-01 to 2025-08-07', 'ai_interpretation': '📈 SÍNTESIS EJECUTIVA:\n\nEl análisis del árbol jerárquico NPS revela un patrón de crisis diferenciada por radio durante la semana del 1-7 de agosto de 2025, donde Long Haul experimenta un deterioro operativo severo mientras Short Haul muestra una mejora paradójica por desconexión entre percepción y realidad. En Long Haul, el segmento Business registró un NPS de 20.96 puntos (deterioro de -8.28 puntos vs período anterior) debido principalmente a crisis de puntualidad real (OTP 79.69%) con efecto rezagado de disrupciones masivas previas, mientras que Premium mostró el mayor impacto con un NPS de 20.83 puntos (caída dramática de -19.17 puntos vs baseline de 40.00) causado por sobrecarga operativa crítica (Load Factor 92.20%) que genera limitaciones específicas de equipaje y configuración. En contraste, Short Haul Business/YW experimentó una mejora significativa con NPS de 15.32 puntos (+12.12 puntos vs semana anterior) explicada por una paradoja operativa: mientras la realidad operativa mejoró radicalmente (eliminación 100% de incidentes), la percepción de puntualidad se mantuvo negativa (SHAP -13.122), compensada exitosamente por mejoras excepcionales en servicios de tierra, especialmente check-in (SHAP +12.313).\n\nLas rutas más críticas se concentran en operaciones Madrid-Latinoamérica y Barcelona-Sudamérica, donde MAD-MEX muestra NPS de 75.0 mantenido únicamente por excelencia de tripulación (100/100) pese a puntualidad catastrófica (0.5/100), mientras que BCN-EZE y BCN-SCL enfrentan restricciones operativas severas con 85 y 27 equipajes respectivamente por limitaciones de peso. Los perfiles de clientes más reactivos incluyen pasajeros Business de origen regional específico con variabilidad extrema de 159.9 puntos entre regiones de residencia, especialmente sensibles en rutas LATAM, y clientes Premium diferenciados por tipo de flota con spread de 9.9 puntos, indicando vulnerabilidad particular a limitaciones operativas de configuración específica.\n\n**ECONOMY SH: Datos No Disponibles**\nLa cabina Economy de Short Haul no presenta datos de análisis durante la semana del 1-7 de agosto de 2025, impidiendo la evaluación de su desempeño y evolución respecto al período anterior. Esta ausencia de información representa una limitación crítica para el análisis comparativo completo del radio Short Haul.\n\n**BUSINESS SH: Mejora Paradójica por Desconexión Operativa**\nEl segmento Business de Short Haul experimentó una mejora significativa de +12.12 puntos, registrando un NPS de 15.32 (vs 3.20 del período anterior). Esta evolución paradójica se explica principalmente por una desconexión entre mejora operativa radical (eliminación 100% de incidentes: retrasos 93→0, cancelaciones 40→0) y percepción negativa persistente de puntualidad (SHAP -13.122), compensada exitosamente por mejoras excepcionales en servicios de tierra, especialmente check-in (SHAP +12.313) y soporte de preparación de viaje (SHAP +8.923). La mejora fue especialmente visible en la única ruta identificada MAD-GRU con incidentes controlados de downgrade, mientras que los perfiles más reactivos incluyen clientes segmentados por región de residencia con variabilidad extrema de 89.8 puntos.\n\n**ECONOMY LH: Datos No Disponibles**\nLa cabina Economy de Long Haul no presenta datos de análisis durante el período evaluado, limitando la comprensión completa del impacto de la crisis operativa en este segmento y su contribución al patrón general de deterioro del radio Long Haul.\n\n**BUSINESS LH: Deterioro por Crisis de Puntualidad y Efecto Rezagado**\nLa cabina Business de Long Haul registró un NPS de 20.96 puntos con un deterioro de -8.28 puntos respecto al período anterior (baseline 29.24). Los drivers principales fueron la crisis de puntualidad real (SHAP -7.572) respaldada por OTP deteriorado de 79.69% y efecto rezagado de disrupciones masivas previas (296+ pasajeros afectados vs 1 incidente actual), parcialmente compensado por excelencia mantenida de tripulación (SHAP +3.091). El deterioro impactó especialmente las rutas MAD-LATAM, donde MAD-MEX mantiene NPS de 75.0 únicamente por crew excepcional (100/100) pese a puntualidad catastrófica (0.5/100), mientras que los perfiles más reactivos incluyen clientes Business de origen regional con variabilidad extrema de 159.9 puntos, especialmente sensibles en operaciones latinoamericanas.\n\n**PREMIUM LH: Colapso por Sobrecarga Operativa Crítica**\nEl segmento Premium de Long Haul experimentó el mayor deterioro con un NPS de 20.83 puntos, cayendo dramáticamente -19.17 puntos vs baseline de 40.00 puntos. Las causas dominantes fueron sobrecarga operativa crítica (Load Factor SHAP -8.414 con 92.20% real) que genera limitaciones específicas de equipaje y configuración, complementada por impacto negativo de precio (SHAP -5.289) y servicios lounge (SHAP -3.962). El colapso fue especialmente evidente en rutas BCN-Sudamérica donde BCN-EZE y BCN-SCL enfrentan restricciones operativas severas con 85 y 27 equipajes respectivamente por limitaciones de peso, mientras que los perfiles más reactivos incluyen diferenciación por tipo de flota específica con spread de 9.9 puntos, indicando vulnerabilidad particular a limitaciones operativas de configuración.'}]
+
+**ANÁLISIS DIARIO SINGLE:**
+
+
+TAREA:
+1. Copia la síntesis ejecutiva del interpreter semanal TAL COMO ESTÁ
+2. Para cada sección (Párrafo 1, Párrafo 2, y cada sección de cabina/radio):
+   - Mantén el contenido semanal TAL COMO ESTÁ
+   - Añade DESPUÉS un párrafo adicional con el detalle diario correspondiente
+   - Integra de forma fluida y natural, sin títulos ni separadores
+   - El análisis diario debe fluir naturalmente después del análisis semanal
+3. Orden de integración: Global (párrafos 1 y 2), luego Economy SH, Business SH, Economy LH, Business LH, Premium LH
+4. Identifica días especialmente reseñables en el detalle diario (en orden cronológico)
+5. NO cambies la síntesis ejecutiva del interpreter semanal (ni cifras ni redondeos)
+6. NO añadas recomendaciones adicionales
+7. Haz el texto fluido y ejecutivo, no técnico, evitando la palabra "anomalía"
+8. Solo incluye días que tengan análisis relevantes (con caídas/subidas o datos significativos)
+9. Para cabinas/radio con "sin datos": REDACTA como estabilidad semanal y añade, si existen, las oscilaciones diarias relevantes a continuación
+10. **CRÍTICO**: Si hay datos en "ANÁLISIS DIARIO SINGLE", DEBES usarlos. NO digas que "no están disponibles" si están presentes en el input.

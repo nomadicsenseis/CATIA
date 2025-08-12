@@ -1,0 +1,93 @@
+// DAX Query - Customer Profile Analysis
+DEFINE
+    VAR __DS0FilterTable9 = 
+        TREATAS({"__DIMENSION_NAME__"}, 'Customer_Profile_Dinamic_Legend'[Name])
+    
+    VAR __DS0FilterTable =
+        TREATAS({"__CABINS__"}, 'Cabin_Master'[Cabin_Show])
+ 
+    VAR __DS0FilterTable2 =
+        TREATAS({"__COMPANIES__"}, 'Company_Master'[Company])
+ 
+    VAR __DS0FilterTable3 =
+        TREATAS({"__HAULS__"}, 'Haul_Master'[Haul_Aggr])
+ 
+    VAR __DS0FilterTable4 =
+        FILTER(
+            KEEPFILTERS(VALUES('Date_Master'[Date])),
+            'Date_Master'[Date] = DATE(__CURRENT_YEAR__, __CURRENT_MONTH__, __CURRENT_DAY__)
+        )
+ 
+    VAR __DS0FilterTable8 =
+        TREATAS({"'surveys_maritz'[issue_category]"}, 'Categories'[Categories Campos])
+ 
+    VAR __DS0FilterTable7 =
+        TREATAS({"__COMPARISON_FILTER__"}, 'Filtro_Comparativa'[Filtro_Comparativa])
+
+    VAR __DS0FilterTableSelPeriod =
+        FILTER(
+            KEEPFILTERS(VALUES('Aux_Date_Master_Selected_Period'[Date_aux])),
+            AND(
+                'Aux_Date_Master_Selected_Period'[Date_aux] >= DATE(__START_YEAR__, __START_MONTH__, __START_DAY__),
+                'Aux_Date_Master_Selected_Period'[Date_aux] < DATE(__END_YEAR__, __END_MONTH__, __END_DAY__)
+            ))
+ 
+    VAR __ValueFilterDM2 =
+        FILTER(
+            KEEPFILTERS(
+                SUMMARIZECOLUMNS(
+                    'Customer_Profile'[Category],
+                    __DS0FilterTable,
+                    __DS0FilterTable2,
+                    __DS0FilterTable3,
+                    __DS0FilterTable4,
+                    __DS0FilterTable7,
+                    __DS0FilterTable8,
+                    __DS0FilterTable9,
+                    __DS0FilterTableSelPeriod,
+                    "Count_total", IGNORE('Measure'[Count_total])
+                )
+            ),
+            [Count_total] >= 1
+        ) 
+ 
+    VAR __DS0Core =
+        CALCULATETABLE(
+            ADDCOLUMNS(
+                values('Customer_Profile'[Category]),
+                "NPS", 'Measure'[NPS (Route)],
+                "NPS diff", [Switch_NPS_Raw_diff],
+                "Pax", 'Measure'[n (Route)],
+                "CodeShare", 'Measure'[CodeShare (Route)]*100,
+                "Check_in", CALCULATE([Monthly_Satisfaction], TouchPoint_Master[filtered_name]="Check-in"),
+                "Lounge", CALCULATE([Monthly_Satisfaction], TouchPoint_Master[filtered_name]="Lounge"),
+                "Boarding", CALCULATE([Monthly_Satisfaction], TouchPoint_Master[filtered_name]="Boarding"),
+                "Aircraft interior", CALCULATE([Monthly_Satisfaction], TouchPoint_Master[filtered_name]="Aircraft interior"),
+                "Wi-Fi", CALCULATE([Monthly_Satisfaction], TouchPoint_Master[filtered_name]="Wi-Fi"),
+                "IFE", CALCULATE([Monthly_Satisfaction], TouchPoint_Master[filtered_name]="IFE"),
+                "F&B", CALCULATE([Monthly_Satisfaction], TouchPoint_Master[filtered_name]="In flight food and beverage"),
+                "Crew", CALCULATE([Monthly_Satisfaction], TouchPoint_Master[filtered_name]="Cabin Crew"),
+                "Arrivals", CALCULATE([Monthly_Satisfaction], TouchPoint_Master[filtered_name]="Arrivals experience"),
+                "Connections", CALCULATE([Monthly_Satisfaction], TouchPoint_Master[filtered_name]="Connections experience"),
+                "Journey preparation support", CALCULATE([Monthly_Satisfaction], TouchPoint_Master[filtered_name]="Journey preparation support"),   
+                "Airport security", CALCULATE([Monthly_Satisfaction], TouchPoint_Master[filtered_name]="Airport security"),
+                "Punctuality", CALCULATE([Monthly_Satisfaction], TouchPoint_Master[filtered_name]="Punctuality"),
+                "Pilot's announcements", CALCULATE([Monthly_Satisfaction], TouchPoint_Master[filtered_name]="Pilot's announcements"),
+                "IB Plus loyalty program", CALCULATE([Monthly_Satisfaction], TouchPoint_Master[filtered_name]="IB Plus loyalty program"), 
+                "Ticket Price", CALCULATE([S_client_Satisfaction], TouchPoint_Master[filtered_name]="Ticket Price"),
+                "Load Factor", CALCULATE([S_client_Satisfaction], TouchPoint_Master[filtered_name]="Load Factor"),
+                "OTP_surveyed", [OTP_surveyed]
+            ),
+            __ValueFilterDM2,
+            __DS0FilterTable,
+            __DS0FilterTable2,
+            __DS0FilterTable3,
+            __DS0FilterTable4,
+            __DS0FilterTable7,
+            __DS0FilterTable8,
+            __DS0FilterTable9,
+            __DS0FilterTableSelPeriod
+        )
+       
+EVALUATE
+    __DS0Core 

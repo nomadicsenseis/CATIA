@@ -1,0 +1,70 @@
+EVALUATE
+ADDCOLUMNS(
+    SUMMARIZE(
+        FILTER(
+            'NCS_Data',
+            'NCS_Data'[Date] >= DATE(2024, 1, 1) &&
+            'NCS_Data'[Date] <= TODAY() &&
+            NOT(ISBLANK('NCS_Data'[Incident_Type]))
+        ),
+        'NCS_Data'[Date],
+        'NCS_Data'[Incident_ID],
+        'NCS_Data'[Route],
+        'NCS_Data'[Origin],
+        'NCS_Data'[Destination],
+        'NCS_Data'[Flight_Number],
+        'NCS_Data'[Incident_Type],
+        'NCS_Data'[Incident_Category],
+        'NCS_Data'[Severity_Level],
+        'NCS_Data'[Start_Time],
+        'NCS_Data'[End_Time],
+        'NCS_Data'[Description]
+    ),
+    "Duration_Hours", CALCULATE(
+        IF(
+            NOT(ISBLANK('NCS_Data'[End_Time])) && NOT(ISBLANK('NCS_Data'[Start_Time])),
+            DATEDIFF('NCS_Data'[Start_Time], 'NCS_Data'[End_Time], HOUR),
+            1
+        )
+    ),
+    "Impact_Score", CALCULATE(
+        SWITCH(
+            'NCS_Data'[Severity_Level],
+            "Critical", 1.0,
+            "High", 0.8,
+            "Medium", 0.6,
+            "Low", 0.3,
+            0.5
+        )
+    ),
+    "Affected_Flights", CALCULATE(
+        DISTINCTCOUNT('NCS_Data'[Flight_Number])
+    ),
+    "Total_Incidents", CALCULATE(
+        COUNT('NCS_Data'[Incident_ID])
+    ),
+    "Weather_Related", CALCULATE(
+        IF(
+            SEARCH("weather", LOWER('NCS_Data'[Incident_Type]), 1, 0) > 0 ||
+            SEARCH("storm", LOWER('NCS_Data'[Description]), 1, 0) > 0 ||
+            SEARCH("wind", LOWER('NCS_Data'[Description]), 1, 0) > 0,
+            1, 0
+        )
+    ),
+    "Technical_Related", CALCULATE(
+        IF(
+            SEARCH("technical", LOWER('NCS_Data'[Incident_Type]), 1, 0) > 0 ||
+            SEARCH("mechanical", LOWER('NCS_Data'[Description]), 1, 0) > 0 ||
+            SEARCH("aircraft", LOWER('NCS_Data'[Description]), 1, 0) > 0,
+            1, 0
+        )
+    ),
+    "ATC_Related", CALCULATE(
+        IF(
+            SEARCH("atc", LOWER('NCS_Data'[Incident_Type]), 1, 0) > 0 ||
+            SEARCH("air traffic", LOWER('NCS_Data'[Description]), 1, 0) > 0 ||
+            SEARCH("control", LOWER('NCS_Data'[Description]), 1, 0) > 0,
+            1, 0
+        )
+    )
+) 

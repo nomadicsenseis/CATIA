@@ -1,0 +1,60 @@
+EVALUATE
+ADDCOLUMNS(
+    SUMMARIZE(
+        FILTER(
+            'NPS_Data',
+            'NPS_Data'[Date] >= DATE(2024, 1, 1) &&
+            'NPS_Data'[Date] <= TODAY() &&
+            NOT(ISBLANK('NPS_Data'[NPS_Score]))
+        ),
+        'NPS_Data'[Date],
+        'NPS_Data'[Segment_Level_1],
+        'NPS_Data'[Segment_Level_2], 
+        'NPS_Data'[Segment_Level_3],
+        'NPS_Data'[Segment_Level_4]
+    ),
+    "NPS", CALCULATE(
+        AVERAGE('NPS_Data'[NPS_Score])
+    ),
+    "Surveys_Count", CALCULATE(
+        COUNT('NPS_Data'[Survey_ID])
+    ),
+    "Promoters", CALCULATE(
+        COUNTROWS(
+            FILTER(
+                'NPS_Data',
+                'NPS_Data'[NPS_Score] >= 9
+            )
+        )
+    ),
+    "Detractors", CALCULATE(
+        COUNTROWS(
+            FILTER(
+                'NPS_Data',
+                'NPS_Data'[NPS_Score] <= 6
+            )
+        )
+    ),
+    "Neutrals", CALCULATE(
+        COUNTROWS(
+            FILTER(
+                'NPS_Data',
+                'NPS_Data'[NPS_Score] >= 7 && 'NPS_Data'[NPS_Score] <= 8
+            )
+        )
+    ),
+    "Node_Path", 
+        IF(
+            ISBLANK('NPS_Data'[Segment_Level_2]),
+            'NPS_Data'[Segment_Level_1],
+            IF(
+                ISBLANK('NPS_Data'[Segment_Level_3]),
+                'NPS_Data'[Segment_Level_1] & "/" & 'NPS_Data'[Segment_Level_2],
+                IF(
+                    ISBLANK('NPS_Data'[Segment_Level_4]),
+                    'NPS_Data'[Segment_Level_1] & "/" & 'NPS_Data'[Segment_Level_2] & "/" & 'NPS_Data'[Segment_Level_3],
+                    'NPS_Data'[Segment_Level_1] & "/" & 'NPS_Data'[Segment_Level_2] & "/" & 'NPS_Data'[Segment_Level_3] & "/" & 'NPS_Data'[Segment_Level_4]
+                )
+            )
+        )
+) 

@@ -1,0 +1,101 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Environment variables and credentials
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+temp_aws_credentials.env
+dashboard_analyzer/temp_aws_credentials.env
+.devcontainer/.env
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+.vscode/.ropeproject
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Data files
+*.csv
+*.xlsx
+*.parquet
+data/
+datasets/
+*.db
+*.sqlite
+*.sqlite3
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+*.tmp
+*.temp
+
+# AWS
+.aws/
+aws-credentials.*
+
+# Secrets and keys
+*.key
+*.pem
+*.p12
+secrets.json
+config.json
+
+# Test outputs
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/ 

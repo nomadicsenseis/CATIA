@@ -1,0 +1,61 @@
+DEFINE
+
+MEASURE 'Measure'[Load_Factor_CATIA] =
+var lf_economy= divide(sum(Operation_data[pax_economy]),sum(Operation_data[capacity_economy]))
+var lf_business=divide(sum(Operation_data[pax_business]),sum(Operation_data[capacity_business]))
+var lf_premium_ec=divide(sum(Operation_data[pax_premium_ec]),sum(Operation_data[capacity_premium_ec]))
+var lf_economy_and_premium_ec= divide(calculate(SUMx(Operation_data,Operation_data[pax_economy]+Operation_data[pax_premium_ec])),calculate(sumx(Operation_data, Operation_data[capacity_economy] +Operation_data[capacity_premium_ec])))
+VAR lF_OVERALL = DIVIDE(calculate(sumx(Operation_data, Operation_data[pax_business]+ Operation_data[pax_economy] +Operation_data[pax_premium_ec])),CALCULATE(SUMx(Operation_data,Operation_data[capacity_business]+Operation_data[capacity_economy]+Operation_data[capacity_premium_ec])))
+RETURN
+SWITCH(true(),
+    COUNTROWS(Cabin_Master)>1, lF_OVERALL,
+    SELECTEDVALUE(Cabin_Master[Cabin_Show])="Economy",lf_economy,
+    SELECTEDVALUE(Cabin_Master[Cabin_Show])="Business",lf_business,
+    SELECTEDVALUE(Cabin_Master[Cabin_Show])="Premium EC",lf_premium_ec)*100
+   
+MEASURE 'Measure'[Misconex_CATIA] =
+if (DISTINCTCOUNT(Haul_Master[Haul_Aggr])>1 && DISTINCTCOUNT(Cabin_Master[Cabin_Show])>1
+,divide(sum(customer_connections[total_pax_misc]),sum(customer_connections[total_pax_conex]))*100, "")
+ 
+ 
+MEASURE 'Measure'[Mishandling_CATIA] =
+var _misha=divide(sum(f_mishandling[bags]),sum(f_checkin[num_pax_flown]))*1000
+return
+if (DISTINCTCOUNT(Haul_Master[Haul_Aggr])>1 && DISTINCTCOUNT(Cabin_Master[Cabin_Show])>1,_misha,"")
+   
+   
+   
+    VAR __DS0FilterTable =
+        TREATAS({"Business", "Economy", "Premium EC"}, 'Cabin_Master'[Cabin_Show])
+
+    VAR __DS0FilterTable2 =
+        TREATAS({"IB","YW"}, 'Company_Master'[Company])
+
+    VAR __DS0FilterTable3 =
+        TREATAS({"SH","LH"}, 'Haul_Master'[Haul_Aggr])
+
+
+    VAR __DS0FilterTable4 =
+        FILTER(
+            KEEPFILTERS(VALUES('Date_Master'[Date])),
+            'Date_Master'[Date] > TODAY()-21
+        )
+
+
+    VAR __DS0Core =
+        SUMMARIZECOLUMNS(
+            'Date_Master'[Date],
+            __DS0FilterTable,
+            __DS0FilterTable2,
+            __DS0FilterTable3,
+            __DS0FilterTable4,
+            "Load_Factor", 'Measure'[Load_Factor_CATIA],
+            "OTP15_adjusted", 'Measure'[OTP15_adjusted],
+            "Misconex", 'Measure'[Misconex_CATIA],
+            "Mishandling", 'Measure'[Mishandling_CATIA]
+        )
+
+
+
+EVALUATE
+    __DS0Core 
