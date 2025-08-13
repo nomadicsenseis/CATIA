@@ -1278,7 +1278,8 @@ class OperationalDataAnalyzer:
             result = {
                 'otp_explanation': "No OTP data available",
                 'load_factor_explanation': "No Load Factor data available", 
-                'mishandling_explanation': "No Mishandling data available"
+                'mishandling_explanation': "No Mishandling data available",
+                'misconex_explanation': "No Misconex data available"
             }
 
             if node_path not in self.operative_data:
@@ -1326,18 +1327,26 @@ class OperationalDataAnalyzer:
                 
                 target_row = target_data.iloc[0]
 
-            # Análisis específico por métrica
-            load_factor_explanation = self._explain_load_factor(target_row, anomaly_type)
+            # Obtener análisis completo para contexto de cambios
+            full_analysis = self.analyze_operative_metrics(node_path, target_date)
+            metrics_context = full_analysis.get('metrics', {}) if 'error' not in full_analysis else {}
+
+            # Análisis específico por métrica con contexto de cambios
+            load_factor_explanation = self._explain_load_factor(target_row, anomaly_type, metrics_context.get('Load_Factor', {}))
             if load_factor_explanation:
                 result['load_factor_explanation'] = load_factor_explanation
 
-            otp_explanation = self._explain_otp(target_row, anomaly_type)
+            otp_explanation = self._explain_otp(target_row, anomaly_type, metrics_context.get('OTP15_adjusted', {}))
             if otp_explanation:
                 result['otp_explanation'] = otp_explanation
 
-            mishandling_explanation = self._explain_mishandling(target_row, anomaly_type)
+            mishandling_explanation = self._explain_mishandling(target_row, anomaly_type, metrics_context.get('Mishandling', {}))
             if mishandling_explanation:
                 result['mishandling_explanation'] = mishandling_explanation
+
+            misconex_explanation = self._explain_misconex(target_row, anomaly_type, metrics_context.get('Misconex', {}))
+            if misconex_explanation:
+                result['misconex_explanation'] = misconex_explanation
 
             return result
 
@@ -1346,7 +1355,8 @@ class OperationalDataAnalyzer:
             return {
                 'otp_explanation': f"Error analyzing OTP: {str(e)}",
                 'load_factor_explanation': f"Error analyzing Load Factor: {str(e)}",
-                'mishandling_explanation': f"Error analyzing Mishandling: {str(e)}"
+                'mishandling_explanation': f"Error analyzing Mishandling: {str(e)}",
+                'misconex_explanation': f"Error analyzing Misconex: {str(e)}"
             }
 
     def _analyze_vslast(self, data: pd.DataFrame, target_dt: pd.Timestamp, node_path: str) -> Dict[str, Any]:
@@ -1645,53 +1655,122 @@ class OperationalDataAnalyzer:
         }
         return display_names.get(metric, metric)
 
-    def _explain_load_factor(self, row: pd.Series, anomaly_type: str) -> Optional[str]:
+    def _explain_load_factor(self, row: pd.Series, anomaly_type: str, metrics_context: dict = None) -> Optional[str]:
         """Genera explicación específica para Load Factor"""
         try:
             lf = pd.to_numeric(row.get('Load_Factor'), errors='coerce')
             if pd.isna(lf):
                 return None
 
+            # Construir explicación base
+            explanation_parts = []
+            
             if lf > 90 and anomaly_type == 'negative':
-                return f"Load Factor muy alto ({lf}%) puede haber impactado la experiencia del cliente"
+                explanation_parts.append(f"Load Factor muy alto ({lf}%) puede haber impactado la experiencia del cliente")
             elif lf < 70 and anomaly_type == 'positive':
-                return f"Load Factor bajo ({lf}%) puede haber mejorado la comodidad del vuelo"
+                explanation_parts.append(f"Load Factor bajo ({lf}%) puede haber mejorado la comodidad del vuelo")
+            else:
+                explanation_parts.append(f"Load Factor ({lf}%)")
 
-            return None
+            # Añadir contexto de cambio si está disponible
+            if metrics_context and 'previous_value' in metrics_context:
+                previous = metrics_context['previous_value']
+                difference = metrics_context.get('difference', 0)
+                if abs(difference) > 1:  # Solo si hay cambio significativo
+                    direction = "aumentó" if difference > 0 else "disminuyó"
+                    explanation_parts.append(f"- {direction} {abs(difference):.1f}% vs período anterior ({previous}%)")
+
+            return " ".join(explanation_parts) if explanation_parts else None
 
         except Exception:
             return None
 
-    def _explain_otp(self, row: pd.Series, anomaly_type: str) -> Optional[str]:
+    def _explain_otp(self, row: pd.Series, anomaly_type: str, metrics_context: dict = None) -> Optional[str]:
         """Genera explicación específica para OTP"""
         try:
             otp = pd.to_numeric(row.get('OTP15_adjusted'), errors='coerce')
             if pd.isna(otp):
                 return None
 
+            # Construir explicación base
+            explanation_parts = []
+            
             if otp < 80 and anomaly_type == 'negative':
-                return f"Puntualidad baja ({otp}%) puede haber generado insatisfacción"
+                explanation_parts.append(f"Puntualidad baja ({otp:.1f}%) puede haber generado insatisfacción")
             elif otp > 95 and anomaly_type == 'positive':
-                return f"Excelente puntualidad ({otp}%) puede haber contribuido a la mejora"
+                explanation_parts.append(f"Excelente puntualidad ({otp:.1f}%) puede haber contribuido a la mejora")
+            else:
+                explanation_parts.append(f"Puntualidad ({otp:.1f}%)")
 
-            return None
+            # Añadir contexto de cambio si está disponible
+            if metrics_context and 'previous_value' in metrics_context:
+                previous = metrics_context['previous_value']
+                difference = metrics_context.get('difference', 0)
+                if abs(difference) > 0.5:  # Solo si hay cambio significativo
+                    direction = "mejoró" if difference > 0 else "empeoró"
+                    explanation_parts.append(f"- {direction} {abs(difference):.1f}% vs período anterior ({previous:.1f}%)")
+
+            return " ".join(explanation_parts) if explanation_parts else None
 
         except Exception:
             return None
 
-    def _explain_mishandling(self, row: pd.Series, anomaly_type: str) -> Optional[str]:
+    def _explain_mishandling(self, row: pd.Series, anomaly_type: str, metrics_context: dict = None) -> Optional[str]:
         """Genera explicación específica para Mishandling"""
         try:
             mh = pd.to_numeric(row.get('Mishandling'), errors='coerce')
             if pd.isna(mh):
                 return None
 
+            # Construir explicación base
+            explanation_parts = []
+            
             if mh > 1.0 and anomaly_type == 'negative':
-                return f"Tasa alta de mishandling ({mh}%) impactó negativamente la experiencia"
+                explanation_parts.append(f"Tasa alta de mishandling ({mh:.1f}%) impactó negativamente la experiencia")
             elif mh < 0.3 and anomaly_type == 'positive':
-                return f"Baja tasa de mishandling ({mh}%) contribuyó a la mejora del servicio"
+                explanation_parts.append(f"Baja tasa de mishandling ({mh:.1f}%) contribuyó a la mejora del servicio")
+            else:
+                explanation_parts.append(f"Mishandling ({mh:.1f}%)")
 
+            # Añadir contexto de cambio si está disponible
+            if metrics_context and 'previous_value' in metrics_context:
+                previous = metrics_context['previous_value']
+                difference = metrics_context.get('difference', 0)
+                if abs(difference) > 0.1:  # Solo si hay cambio significativo
+                    direction = "aumentó" if difference > 0 else "disminuyó"
+                    explanation_parts.append(f"- {direction} {abs(difference):.1f}% vs período anterior ({previous:.1f}%)")
+
+            return " ".join(explanation_parts) if explanation_parts else None
+
+        except Exception:
             return None
+
+    def _explain_misconex(self, row: pd.Series, anomaly_type: str, metrics_context: dict = None) -> Optional[str]:
+        """Genera explicación específica para Misconex (conexiones perdidas)"""
+        try:
+            mc = pd.to_numeric(row.get('Misconex'), errors='coerce')
+            if pd.isna(mc):
+                return None
+
+            # Construir explicación base
+            explanation_parts = []
+            
+            if mc > 0.5 and anomaly_type == 'negative':
+                explanation_parts.append(f"Tasa alta de conexiones perdidas ({mc:.1f}%) impactó negativamente la experiencia")
+            elif mc < 0.1 and anomaly_type == 'positive':
+                explanation_parts.append(f"Baja tasa de conexiones perdidas ({mc:.1f}%) contribuyó a la mejora del servicio")
+            else:
+                explanation_parts.append(f"Conexiones perdidas ({mc:.1f}%)")
+
+            # Añadir contexto de cambio si está disponible
+            if metrics_context and 'previous_value' in metrics_context:
+                previous = metrics_context['previous_value']
+                difference = metrics_context.get('difference', 0)
+                if abs(difference) > 0.1:  # Solo si hay cambio significativo
+                    direction = "aumentó" if difference > 0 else "disminuyó"
+                    explanation_parts.append(f"- {direction} {abs(difference):.1f}% vs período anterior ({previous:.1f}%)")
+
+            return " ".join(explanation_parts) if explanation_parts else None
 
         except Exception:
             return None 

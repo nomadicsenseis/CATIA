@@ -15,13 +15,12 @@ SWITCH(true(),
     SELECTEDVALUE(Cabin_Master[Cabin_Show])="Premium EC",lf_premium_ec)*100
    
 MEASURE 'Measure'[Misconex_CATIA] =
-if (DISTINCTCOUNT(Haul_Master[Haul_Aggr])>1 && DISTINCTCOUNT(Cabin_Master[Cabin_Show])>1
-,divide(sum(customer_connections[total_pax_misc]),sum(customer_connections[total_pax_conex]))*100, "")
+divide(sum(customer_connections[total_pax_misc]),sum(customer_connections[total_pax_conex]))*100
  
 MEASURE 'Measure'[Mishandling_CATIA] =
-var _misha=divide(sum(f_mishandling[bags]),sum(f_checkin[num_pax_flown]))*1000
-return
-if (DISTINCTCOUNT(Haul_Master[Haul_Aggr])>1 && DISTINCTCOUNT(Cabin_Master[Cabin_Show])>1,_misha,"")
+var _bags = sum(f_mishandling[bags])
+var _pax = sum(f_checkin[num_pax_flown])
+return if(_pax > 0, divide(_bags, _pax) * 1000, 0)
 
     VAR __DS0FilterTable =
         TREATAS({"Business", "Economy", "Premium EC"}, 'Cabin_Master'[Cabin_Show])

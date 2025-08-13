@@ -1210,14 +1210,17 @@ class CausalExplanationAgent:
             single_period_sequence = [
                 "operative_data_tool",
                 "ncs_tool", 
-                "routes_tool"
+                "routes_tool",
+                "verbatims_tool",
+                "customer_profile_tool"
             ]
             
-            max_iterations = len(single_period_sequence)
+            max_iterations = 5  # Allow up to 5 iterations for dynamic tool selection
             iteration = 0
+            current_tool = single_period_sequence[0]  # Start with first tool
             
-            # Execute tools for single period analysis
-            for current_tool in single_period_sequence:
+            # Execute tools for single period analysis with dynamic progression
+            while current_tool and iteration < max_iterations:
                 iteration += 1
                 self.tracker.next_iteration()
                 
@@ -1268,6 +1271,14 @@ class CausalExplanationAgent:
                     self.logger.info(f"💭 Reflection captured for {current_tool}")
                 else:
                     self.logger.warning(f"⚠️ No reflection captured for {current_tool}")
+                
+                # Determine next tool dynamically
+                current_tool = self._determine_next_tool_dynamic(current_tool, iteration, max_iterations)
+                if current_tool:
+                    self.logger.info(f"🔄 Next tool determined: {current_tool}")
+                else:
+                    self.logger.info(f"✅ No more tools to execute, proceeding to synthesis")
+                    break
                 
             # Final synthesis for single period
             try:
@@ -1681,39 +1692,46 @@ class CausalExplanationAgent:
             operative_parts.append(comparison_info)
             operative_parts.append("")
             
-            # Add OTP analysis if available
-            if specific_explanations['otp_explanation'] != "No OTP data available":
-                operative_parts.append(f"🕒 **OTP Performance**: {specific_explanations['otp_explanation']}")
-            
-            # Add Load Factor analysis if available
-            if specific_explanations['load_factor_explanation'] != "No Load Factor data available":
-                operative_parts.append(f"🎯 **Load Factor**: {specific_explanations['load_factor_explanation']}")
-            
-            # Add other significant metrics
+            # Show all metrics with changes vs previous period
             metrics = analysis.get("metrics", {})
-            other_metrics = []
-            
-            for metric, data in metrics.items():
-                if metric not in ['OTP15_adjusted', 'Load_Factor']:  # Skip already covered metrics
-                    if data.get('is_significant', False):
-                        direction = "↗️" if data['direction'] == 'higher' else "↘️"
+            if metrics:
+                operative_parts.append(f"📊 **Métricas Operativas vs Período Anterior**:")
+                
+                for metric, data in metrics.items():
+                    # Skip metrics with no real data (all zeros or identical values)
+                    current_val = data.get('current_value', data.get('current', 0))
+                    previous_val = data.get('previous_value', data.get('previous', 0))
+                    
+                    # Skip Mishandling if both current and previous are 0 (no data for this segment)
+                    if metric == 'Mishandling' and current_val == 0 and previous_val == 0:
+                        continue
                         
-                        if comparison_mode == "vslast":
-                            current_val = data.get('current_value', data.get('day_value', 'N/A'))
-                            previous_val = data.get('previous_value', 'N/A')
-                            change_text = f"{current_val} vs {previous_val} previous period"
-                        else:
-                            baseline_value = data.get('week_average', data.get('previous_value', 'período de referencia'))
-                            day_val = data.get('day_value', data.get('current_value', 'N/A'))
-                            change_text = f"{day_val} vs {baseline_value} (período de referencia)"
+                    direction = "↗️" if data['direction'] == 'higher' else "↘️"
+                    
+                    if comparison_mode == "vslast":
+                        delta = data.get('delta', data.get('difference', 0))
+                        change_pct = data.get('change_pct', 0)
                         
+                        # Determine if change supports or contradicts NPS anomaly
+                        correlation_status = "❓"
+                        if anomaly_type_for_analysis.lower() == 'negative':
+                            if metric in ['OTP15_adjusted']:  # Direct correlation
+                                correlation_status = "✅ Explica NPS↓" if delta < 0 else "❌ Contradice NPS↓"
+                            elif metric in ['Load_Factor', 'Misconex', 'Mishandling']:  # Inverse correlation
+                                correlation_status = "✅ Explica NPS↓" if delta > 0 else "❌ Contradice NPS↓"
+                        elif anomaly_type_for_analysis.lower() == 'positive':
+                            if metric in ['OTP15_adjusted']:  # Direct correlation
+                                correlation_status = "✅ Explica NPS↑" if delta > 0 else "❌ Contradice NPS↑"
+                            elif metric in ['Load_Factor', 'Misconex', 'Mishandling']:  # Inverse correlation
+                                correlation_status = "✅ Explica NPS↑" if delta < 0 else "❌ Contradice NPS↑"
+                        
+                        metric_display = metric.replace('_', ' ').replace('adjusted', '').title()
+                        operative_parts.append(f"   • **{metric_display}**: {current_val} vs {previous_val} ({direction}{abs(delta):.1f}, {change_pct:+.1f}%) {correlation_status}")
+                    else:
+                        baseline_value = data.get('week_average', data.get('previous_value', 'N/A'))
+                        day_val = data.get('day_value', data.get('current_value', 'N/A'))
                         metric_display = metric.replace('_', ' ').title()
-                        impact = self._get_metric_impact_summary(metric, data['direction'])
-                        other_metrics.append(f"   • **{metric_display}**: {direction} {change_text} ({data['delta']:+.1f}) - {impact}")
-            
-            if other_metrics:
-                operative_parts.append(f"📈 **Other Metrics**:")
-                operative_parts.extend(other_metrics)
+                        operative_parts.append(f"   • **{metric_display}**: {day_val} vs {baseline_value} (referencia)")
             
             # Add correlation summary
             operative_parts.append("")
@@ -2768,7 +2786,7 @@ class CausalExplanationAgent:
             self.logger.error(f"💥 Full traceback: {traceback.format_exc()}")
             return f"Error in NCS analysis: {str(e)}"
 
-    async def _routes_tool(self, node_path: str, start_date: str, end_date: str, min_surveys: int = 3, anomaly_type: str = "unknown") -> str:
+    async def _routes_tool(self, node_path: str, start_date: str, end_date: str, min_surveys: int = 2, anomaly_type: str = "unknown") -> str:
         """
         Enhanced tool for analyzing route-specific NPS performance from ALL sources:
         1. Routes from explanatory drivers (ordered by NPS and touchpoint satisfactions)
@@ -2893,17 +2911,41 @@ class CausalExplanationAgent:
             if pax_col:
                 df = df[df[pax_col].fillna(0) >= min_surveys]
             
-            # Find touchpoint satisfaction columns for each driver
+            # Find touchpoint satisfaction columns for each driver (use CSAT diff for ordering)
             touchpoint_cols = {}
+            touchpoint_abs_cols = {}  # Store absolute CSAT columns for display
             for touchpoint in main_touchpoints:
-                # Map touchpoint names to exact column names from the template
-                touchpoint_mapping = {
+                # Map touchpoint names to CSAT diff column names (for ordering)
+                touchpoint_diff_mapping = {
+                    'check-in': 'Check_in_diff',
+                    'check_in': 'Check_in_diff',
+                    'lounge': 'Lounge_diff',
+                    'boarding': 'Boarding_diff',
+                    'aircraft interior': 'Aircraft_interior_diff',
+                    'aircraft_interior': 'Aircraft_interior_diff',
+                    'wi-fi': 'Wi-Fi_diff',
+                    'wifi': 'Wi-Fi_diff',
+                    'ife': 'IFE_diff',
+                    'f&b': 'F&B_diff',
+                    'fb': 'F&B_diff',
+                    'crew': 'Crew_diff',
+                    'cabin crew': 'Crew_diff',
+                    'arrivals': 'Arrivals_diff',
+                    'arrivals experience': 'Arrivals_diff',
+                    'connections': 'Connections_diff',
+                    'connections experience': 'Connections_diff',
+                    'punctuality': 'Operative_diff'
+                    # Note: Other touchpoints not available in routes data
+                }
+                
+                # Map touchpoint names to absolute CSAT column names (for display)
+                touchpoint_abs_mapping = {
                     'check-in': 'Check_in',
                     'check_in': 'Check_in',
                     'lounge': 'Lounge',
                     'boarding': 'Boarding',
-                    'aircraft interior': 'Aircraft interior',
-                    'aircraft_interior': 'Aircraft interior',
+                    'aircraft interior': 'Aircraft_interior',
+                    'aircraft_interior': 'Aircraft_interior',
                     'wi-fi': 'Wi-Fi',
                     'wifi': 'Wi-Fi',
                     'ife': 'IFE',
@@ -2915,43 +2957,26 @@ class CausalExplanationAgent:
                     'arrivals experience': 'Arrivals',
                     'connections': 'Connections',
                     'connections experience': 'Connections',
-                    'journey preparation support': 'Journey preparation support',
-                    'journey_preparation_support': 'Journey preparation support',
-                    'airport security': 'Airport security',
-                    'airport_security': 'Airport security',
-                    'punctuality': 'Operative',
-                    'pilot\'s announcements': 'Pilot\'s announcements',
-                    'pilots_announcements': 'Pilot\'s announcements',
-                    'ib plus loyalty program': 'IB Plus loyalty program',
-                    'ib_plus_loyalty_program': 'IB Plus loyalty program',
-                    'ticket price': 'Ticket Price',
-                    'ticket_price': 'Ticket Price',
-                    'load factor': 'Load Factor',
-                    'load_factor': 'Load Factor'
+                    'punctuality': 'Operative'
+                    # Note: Other touchpoints not available in routes data
                 }
                 
-                # Try to find the exact column name
-                exact_col = touchpoint_mapping.get(touchpoint.lower())
-                if exact_col and exact_col in df.columns:
-                    touchpoint_cols[touchpoint] = exact_col
-                    self.logger.info(f"✅ Found exact column for {touchpoint}: {exact_col}")
+                # Try to find the CSAT diff column (for ordering)
+                exact_diff_col = touchpoint_diff_mapping.get(touchpoint.lower())
+                if exact_diff_col and exact_diff_col in df.columns:
+                    touchpoint_cols[touchpoint] = exact_diff_col
+                    self.logger.info(f"✅ Found CSAT diff column for {touchpoint}: {exact_diff_col}")
                 else:
-                    # Fallback: try different possible names
-                    possible_names = [
-                        touchpoint.lower(),
-                        touchpoint.lower().replace(' ', '_'),
-                        touchpoint.lower().replace(' ', ''),
-                        touchpoint,
-                        f"{touchpoint.lower()}_csat",
-                        f"{touchpoint.lower()}_satisfaction",
-                        f"{touchpoint.lower()}_score"
-                    ]
-                    col = self._find_column(df, possible_names)
-                    if col:
-                            touchpoint_cols[touchpoint] = col
-                            self.logger.info(f"✅ Found column for {touchpoint}: {col} (fallback)")
-                    else:
-                            self.logger.warning(f"⚠️ No column found for touchpoint: {touchpoint}")
+                    self.logger.warning(f"⚠️ No CSAT diff column found for touchpoint: {touchpoint}")
+                    continue
+                
+                # Try to find the absolute CSAT column (for display)
+                exact_abs_col = touchpoint_abs_mapping.get(touchpoint.lower())
+                if exact_abs_col and exact_abs_col in df.columns:
+                    touchpoint_abs_cols[touchpoint] = exact_abs_col
+                    self.logger.info(f"✅ Found absolute CSAT column for {touchpoint}: {exact_abs_col}")
+                else:
+                    self.logger.warning(f"⚠️ No absolute CSAT column found for touchpoint: {touchpoint}")
             
             if not touchpoint_cols:
                 return {"routes": [], "analysis": f"❌ No touchpoint columns found for drivers: {main_touchpoints}. Available: {list(df.columns)}", "source": "explanatory_drivers"}
@@ -2981,17 +3006,17 @@ class CausalExplanationAgent:
                     if shap_value == 0.0:
                         self.logger.warning(f"⚠️ DEBUG SHAP: No SHAP value found for touchpoint '{touchpoint}'")
                 
-                # Sort routes by this touchpoint's satisfaction score
-                # For negative SHAP values (negative impact): sort by lowest CSAT first (worst performance)
-                # For positive SHAP values (positive impact): sort by highest CSAT first (best performance)
+                # Sort routes by this touchpoint's CSAT difference (not absolute CSAT)
+                # For negative SHAP values (negative impact): sort by worst CSAT diff first (biggest drops)
+                # For positive SHAP values (positive impact): sort by best CSAT diff first (biggest improvements)
                 if shap_value < 0:
-                    # Negative SHAP: sort by lowest CSAT first (worst performance)
+                    # Negative SHAP: sort by worst CSAT diff first (biggest drops)
                     sorted_df = df.sort_values(by=col, ascending=True)
-                    sort_desc = f"worst {touchpoint} satisfaction first (negative SHAP: {shap_value:.3f})"
+                    sort_desc = f"worst {touchpoint} CSAT change first (negative SHAP: {shap_value:.3f})"
                 else:
-                    # Positive SHAP: sort by highest CSAT first (best performance)
+                    # Positive SHAP: sort by best CSAT diff first (biggest improvements)
                     sorted_df = df.sort_values(by=col, ascending=False)
-                    sort_desc = f"best {touchpoint} satisfaction first (positive SHAP: {shap_value:.3f})"
+                    sort_desc = f"best {touchpoint} CSAT change first (positive SHAP: {shap_value:.3f})"
             
                 # Get top 5 routes for this driver
                 top_routes = sorted_df.head(5)
@@ -2999,10 +3024,15 @@ class CausalExplanationAgent:
                 analysis_summary += f"\n   🔝 Top 5 routes by {touchpoint} ({sort_desc}):\n"
                 
                 for _, route in top_routes.iterrows():
+                    # Get absolute CSAT value for display
+                    abs_col = touchpoint_abs_cols.get(touchpoint)
+                    csat_abs = round(route[abs_col], 1) if abs_col and pd.notna(route[abs_col]) else None
+                    
                     route_info = {
                         "route": route[route_col],
                         "driver": touchpoint,
-                        "driver_score": round(route[col], 1) if pd.notna(route[col]) else None,
+                        "driver_score": csat_abs,  # Absolute CSAT for display
+                        "driver_diff": round(route[col], 1) if pd.notna(route[col]) else None,  # CSAT diff (used for ordering)
                         "nps": round(route[nps_col], 1) if nps_col and pd.notna(route[nps_col]) else None,
                         "nps_diff": round(route[nps_diff_col], 1) if nps_diff_col and pd.notna(route[nps_diff_col]) else None,
                         "pax": int(route[pax_col]) if pax_col and pd.notna(route[pax_col]) else 0,
@@ -4467,8 +4497,10 @@ class CausalExplanationAgent:
     
     def _apply_contextual_filtering(self, ncs_data: pd.DataFrame, node_path: str) -> pd.DataFrame:
         """
-        Apply contextual filtering when route-based filtering fails.
-        Uses keywords and patterns relevant to the segment.
+        Apply contextual filtering with the correct NCS logic:
+        1. ALWAYS filter by haul (Global, LH, SH) based on routes/airports
+        2. ONLY filter by cabin when we're at cabin level AND the incident specifies it affects ONLY another cabin
+        3. NEVER discard incidents just because they don't mention cabin
         """
         try:
             # Get segment filters
@@ -4480,7 +4512,7 @@ class CausalExplanationAgent:
             incident_col = ncs_data.columns[0]
             filtered_ncs = ncs_data.copy()
             
-            # Apply haul-based contextual filtering
+            # STEP 1: ALWAYS apply haul-based filtering (Global, LH, SH)
             if hauls and len(hauls) == 1:
                 haul_type = hauls[0]
                 
@@ -4511,9 +4543,11 @@ class CausalExplanationAgent:
                         self.logger.info(f"Long-haul contextual filtering: {len(lh_incidents)}/{len(filtered_ncs)} incidents")
                         filtered_ncs = lh_incidents
             
-            # Apply cabin-based contextual filtering
+            # STEP 2: Apply cabin filtering ONLY when we're at cabin level AND need to exclude incidents that affect ONLY other cabins
             if cabins and len(cabins) == 1:
                 cabin_type = cabins[0].lower()
+                
+                # Define keywords for each cabin type
                 cabin_keywords = {
                     'business': ['business', 'ejecutiva', 'premium', 'preferente', 'clase.*business'],
                     'economy': ['economy', 'turista', 'económica', 'clase.*turista'],
@@ -4521,19 +4555,38 @@ class CausalExplanationAgent:
                 }
                 
                 if cabin_type in cabin_keywords:
-                    cabin_pattern = '|'.join([f'\\b{kw}\\b' for kw in cabin_keywords[cabin_type]])
-                    cabin_mask = filtered_ncs[incident_col].str.contains(cabin_pattern, na=False, regex=True, case=False)
-                    cabin_incidents = filtered_ncs[cabin_mask]
+                    # Find incidents that mention OTHER cabins (to potentially exclude them)
+                    other_cabin_patterns = []
+                    for other_cabin, keywords in cabin_keywords.items():
+                        if other_cabin != cabin_type:
+                            other_cabin_patterns.extend(keywords)
                     
-                    if len(cabin_incidents) > 0:
-                        self.logger.info(f"Cabin contextual filtering: {len(cabin_incidents)}/{len(filtered_ncs)} incidents")
-                        filtered_ncs = cabin_incidents
+                    if other_cabin_patterns:
+                        # Pattern to find incidents that mention ONLY other cabins (exclusive language)
+                        exclusive_keywords = ['solo', 'solamente', 'únicamente', 'exclusivamente', 'solo.*clase', 'solo.*cabina']
+                        exclusive_pattern = '|'.join([f'\\b{kw}\\b' for kw in exclusive_keywords])
+                        
+                        # Combine patterns to find incidents that mention other cabins with exclusive language
+                        other_cabin_pattern = '|'.join([f'\\b{kw}\\b' for kw in other_cabin_patterns])
+                        combined_pattern = f"({exclusive_pattern}).*({other_cabin_pattern})|({other_cabin_pattern}).*({exclusive_pattern})"
+                        
+                        # Find incidents to potentially exclude
+                        exclusive_mask = filtered_ncs[incident_col].str.contains(combined_pattern, na=False, regex=True, case=False)
+                        incidents_to_exclude = filtered_ncs[exclusive_mask]
+                        
+                        if len(incidents_to_exclude) > 0:
+                            self.logger.info(f"Cabin exclusion filtering: {len(incidents_to_exclude)} incidents mention ONLY other cabins, excluding them")
+                            # Remove these incidents from our filtered data
+                            filtered_ncs = filtered_ncs[~exclusive_mask]
+                        
+                        self.logger.info(f"After cabin filtering: {len(filtered_ncs)} incidents remain (keeping incidents that don't specify cabin or affect our cabin)")
             
-            # If no contextual matches found, return all data for Global analysis
+            # STEP 3: If no incidents remain after filtering, return original data for Global analysis
             if len(filtered_ncs) == 0 and "Global" in node_path:
-                self.logger.info("No contextual matches found, returning all NCS data for Global analysis")
+                self.logger.info("No incidents remain after filtering, returning all NCS data for Global analysis")
                 return ncs_data
             
+            self.logger.info(f"Final NCS filtering result: {len(filtered_ncs)}/{len(ncs_data)} incidents after contextual filtering")
             return filtered_ncs
             
         except Exception as e:
