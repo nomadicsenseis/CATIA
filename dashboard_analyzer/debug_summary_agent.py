@@ -95,18 +95,29 @@ async def main():
                     "anomalies": ["daily_analysis"]  # Placeholder for anomalies
                 }
                 
-                # All reports are daily reports since they have individual dates
-                daily_reports.append(report_for_agent)
+                # Classify reports based on date range (more reliable than date string format)
+                start_date = metadata.get("start_date", "")
+                end_date = metadata.get("end_date", "")
+                
+                if start_date and end_date and start_date != end_date:
+                    # This is a weekly/comparative report (different start and end dates)
+                    if weekly_report is None:
+                        weekly_report = final_interpretation
+                        print(f"📊 Found weekly report: {date} (study_mode: {study_mode}) [{start_date} to {end_date}]")
+                    else:
+                        print(f"⚠️ Multiple weekly reports found, using first one: {date}")
+                else:
+                    # This is a daily/single report (same start and end date)
+                    daily_reports.append(report_for_agent)
+                    print(f"📅 Found daily report: {date} (study_mode: {study_mode}) [{start_date} to {end_date}]")
 
-            # Use the first report as weekly report (comprehensive analysis)
-            if reports_content:
-                first_report = reports_content[0]
-                weekly_report = first_report.get("final_interpretation", "")
-                print(f"📊 Using first report as weekly analysis and {len(daily_reports)} daily reports...")
-
+            # Verify we have the required reports
             if not weekly_report:
                 print("⚠️ No weekly comparative report found. Cannot generate a comprehensive summary.")
                 return
+
+            if not daily_reports:
+                print("⚠️ No daily reports found. Summary may be incomplete.")
 
             print(f"📊 Processing {len(daily_reports)} daily reports and 1 weekly report...")
 

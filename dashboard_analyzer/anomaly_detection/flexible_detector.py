@@ -44,13 +44,14 @@ class FlexibleAnomalyDetector:
         # Cache for monthly targets to avoid redundant API calls
         self.monthly_targets_cache = {}
         
-    async def analyze_flexible_anomalies(self, data_folder: str, analysis_date=None) -> Tuple[Dict[str, str], Dict[str, float], List[str], Dict[str, Dict[str, float]]]:
+    async def analyze_flexible_anomalies(self, data_folder: str, analysis_date=None, reference_period: int = None) -> Tuple[Dict[str, str], Dict[str, float], List[str], Dict[str, Dict[str, float]]]:
         """
         Analyze flexible anomalies for the most recent period
         
         Args:
             data_folder: Path to data folder
             analysis_date: Optional analysis date (defaults to today)
+            reference_period: Optional reference period for baseline calculation (when date_flight_local is specified)
             
         Returns:
             Tuple of (anomalies, deviations, periods, nps_values)
@@ -93,7 +94,7 @@ class FlexibleAnomalyDetector:
         elif self.detection_mode == "mean":
             # Use mean-based detection
             print(f"📈 USING MEAN-BASED DETECTION")
-            anomalies, deviations, nps_values = self._detect_legacy_anomalies(all_data, latest_period, periods)
+            anomalies, deviations, nps_values = self._detect_legacy_anomalies(all_data, latest_period, periods, reference_period)
         else:  # vslast
             # Use vslast detection
             print(f"🔄 USING VSLAST DETECTION")
@@ -155,22 +156,24 @@ class FlexibleAnomalyDetector:
         return sorted(list(all_periods))
     
     def _detect_legacy_anomalies(self, all_data: Dict[str, pd.DataFrame], 
-                                target_period: int, all_periods: List[int]) -> Tuple[Dict[str, str], Dict[str, float], Dict[str, Dict[str, float]]]:
+                                target_period: int, all_periods: List[int], reference_period: int = None) -> Tuple[Dict[str, str], Dict[str, float], Dict[str, Dict[str, float]]]:
         """Detect anomalies for a specific period using mean of configurable number of periods as baseline"""
         anomalies = {}
         deviations = {}
         nps_values = {}  # Store actual NPS values for display
         
-        # Use the n periods immediately after the target period for baseline calculation
-        # For Period 1, use Periods 2, 3, 4, 5, 6, 7, 8 (the 7 weeks before the target week)
-        baseline_periods = [target_period + i for i in range(1, self.baseline_periods + 1) if (target_period + i) in all_periods]
+        # FIX: Calculate baseline periods once, independent of the target_period loop
+        # The baseline should be the same for all nodes analyzed within the same run.
+        # Use reference_period if provided (when date_flight_local is specified), otherwise use the latest period
+        latest_period_for_baseline = reference_period if reference_period is not None else all_periods[0]
+        baseline_periods = [latest_period_for_baseline + i for i in range(1, self.baseline_periods + 1) if (latest_period_for_baseline + i) in all_periods]
         
         if len(baseline_periods) < 3:
             print(f"⚠️ Insufficient baseline data for period {target_period} (need at least 3 periods)")
             return anomalies, deviations, nps_values
         
         # Only print baseline info once per period  
-        print(f"📈 Period {target_period}: baseline mean of periods {baseline_periods} (last {self.baseline_periods} periods)")
+        print(f"📈 Period {target_period}: baseline mean of periods {baseline_periods} (last {self.baseline_periods} periods relative to latest)")
         
         for node_path, df in all_data.items():
             if 'Period_Group' not in df.columns:
@@ -245,12 +248,7 @@ class FlexibleAnomalyDetector:
             }
             
             # Classify anomaly
-            if deviation > self.threshold:
-                anomalies[node_path] = "+"
-            elif deviation < -self.threshold:
-                anomalies[node_path] = "-"
-            else:
-                anomalies[node_path] = "N"
+            anomalies[node_path] = self._classify_anomaly_new_logic(deviation)
         
         return anomalies, deviations, nps_values
     
@@ -339,12 +337,7 @@ class FlexibleAnomalyDetector:
             }
             
             # Classify anomaly using same threshold as mean-based detection
-            if deviation > self.threshold:
-                anomalies[node_path] = "+"
-            elif deviation < -self.threshold:
-                anomalies[node_path] = "-"
-            else:
-                anomalies[node_path] = "N"
+            anomalies[node_path] = self._classify_anomaly_new_logic(deviation)
         
         return anomalies, deviations, nps_values
     
@@ -458,7 +451,7 @@ class FlexibleAnomalyDetector:
         
         return pd.DataFrame(summary_data)
     
-    async def analyze_period(self, data_folder: str, target_period: int, analysis_date=None) -> Tuple[Dict[str, str], Dict[str, float], List[str], Dict[str, Dict[str, float]]]:
+    async def analyze_period(self, data_folder: str, target_period: int, analysis_date=None, reference_period: int = None) -> Tuple[Dict[str, str], Dict[str, float], List[str], Dict[str, Dict[str, float]]]:
         """
         Analyze anomalies for a specific period
         
@@ -466,6 +459,7 @@ class FlexibleAnomalyDetector:
             data_folder: Path to data folder
             target_period: Period number to analyze
             analysis_date: Optional analysis date
+            reference_period: Optional reference period for baseline calculation (when date_flight_local is specified)
             
         Returns:
             Tuple of (anomalies, deviations, periods, nps_values)
@@ -504,10 +498,30 @@ class FlexibleAnomalyDetector:
         elif self.detection_mode == "mean":
             # Use mean-based detection
             print(f"📈 USING MEAN-BASED DETECTION")
-            anomalies, deviations, nps_values = self._detect_legacy_anomalies(all_data, target_period, periods)
+            anomalies, deviations, nps_values = self._detect_legacy_anomalies(all_data, target_period, periods, reference_period)
         else:  # vslast
             # Use vslast detection
             print(f"🔄 USING VSLAST DETECTION")
             anomalies, deviations, nps_values = self._detect_vslast_anomalies(all_data, target_period, periods)
             
         return anomalies, deviations, periods, nps_values 
+
+    def _classify_anomaly_new_logic(self, deviation: float) -> str:
+        """
+        New anomaly classification logic:
+        - Any negative deviation (bajada) -> Study (negative anomaly)
+        - Only positive deviations > 7 points -> Study (positive anomaly)
+        - Positive deviations ≤ 7 points -> Not studied
+        """
+        if deviation < 0:
+            # Any negative deviation (bajada) is studied
+            if deviation < -5:
+                return "-"  # Pronounced negative anomaly
+            else:
+                return "-"  # Negative anomaly (studied but not pronounced)
+        elif deviation > 7:
+            # Only positive deviations > 7 points are studied
+            return "+"  # Positive anomaly
+        else:
+            # Positive deviations ≤ 7 points are not studied
+            return "N"  # No anomaly (not studied) 

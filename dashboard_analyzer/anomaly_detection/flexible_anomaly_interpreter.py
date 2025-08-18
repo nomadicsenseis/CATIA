@@ -101,6 +101,13 @@ class FlexibleAnomalyInterpreter:
         
         # Update instance variables with the passed parameters
         print(f"         🔍 DEBUG: explain_anomaly called with causal_filter: '{causal_filter}'")
+        
+        # Always reinitialize the causal agent completely for each analysis
+        if self.explanation_mode == "agent":
+            print(f"         🔄 Forcing complete causal agent reinitialization for segment: {node_path}")
+            self.causal_agent = None
+            self._agent_initialized = False
+        
         if causal_filter:
             self.causal_filter = causal_filter
         if comparison_start_date:
@@ -110,6 +117,7 @@ class FlexibleAnomalyInterpreter:
         
         # Initialize or update the causal agent with the correct filter
         if self.explanation_mode == "agent":
+            print(f"         🔍 DEBUG: Agent init check - _agent_initialized: {self._agent_initialized}")
             if not self._agent_initialized:
                 print(f"         🔍 DEBUG: Initializing causal agent with causal_filter: '{causal_filter}'")
                 # Use the study_mode from the instance if available, otherwise determine from causal_filter

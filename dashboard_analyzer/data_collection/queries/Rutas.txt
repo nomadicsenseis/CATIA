@@ -16,15 +16,18 @@ DEFINE
 
     VAR __DS0FilterTable4 =
         FILTER(
-            KEEPFILTERS(VALUES('Date_Master'[Date])),
-            'Date_Master'[Date] = DATE(__CURRENT_YEAR__, __CURRENT_MONTH__, __CURRENT_DAY__)
+            KEEPFILTERS(VALUES('Date_Master'[Date])),   
+            AND(
+                'Date_Master'[Date] >= DATE(__START_YEAR__, __START_MONTH__, __START_DAY__),
+                'Date_Master'[Date] < DATE(__END_YEAR__, __END_MONTH__, __END_DAY__)
+            )
         )
 
     VAR __DS0FilterTable8 =
         TREATAS({"'surveys_maritz'[issue_category]"}, 'Categories'[Categories Campos])
 
     VAR __DS0FilterTable7 =
-        TREATAS({"vs Sel. Period"}, 'Filtro_Comparativa'[Filtro_Comparativa])
+        TREATAS({"__COMPARISON_FILTER__"}, 'Filtro_Comparativa'[Filtro_Comparativa])
 
     VAR __DS0FilterTableSelPeriod =
         FILTER(
@@ -68,6 +71,7 @@ DEFINE
                 __DS0FilterTable7,
                 __DS0FilterTableSelPeriod,
                 "NPS", 'Measure'[NPS (Route)],
+                "NPS_diff", [Switch_NPS_Raw_diff],
                 "Pax", 'Measure'[n (Route)],
                 "CodeShare", 'Measure'[CodeShare (Route)]*100,
                 "Check_in", 'Measure'[Check-in (Route)],
@@ -81,7 +85,18 @@ DEFINE
                 "Arrivals", 'Measure'[Arrivals (Route)],
                 "Connections", 'Measure'[Connections (Route)],
                 "Operative", 'Measure'[Operative (Route)],
-                "NonOperative", 'Measure'[NonOperative (Route)]
+                "NonOperative", 'Measure'[NonOperative (Route)],
+                "Check_in_diff", CALCULATE([S_client_satisfaction_diff], TouchPoint_Master[filtered_name]="Check-in"),
+                "Lounge_diff", CALCULATE([S_client_satisfaction_diff], TouchPoint_Master[filtered_name]="Lounge"),
+                "Boarding_diff", CALCULATE([S_client_satisfaction_diff], TouchPoint_Master[filtered_name]="Boarding"),
+                "Aircraft_interior_diff", CALCULATE([S_client_satisfaction_diff], TouchPoint_Master[filtered_name]="Aircraft interior"),
+                "Wi-Fi_diff", CALCULATE([S_client_satisfaction_diff], TouchPoint_Master[filtered_name]="Wi-Fi"),
+                "IFE_diff", CALCULATE([S_client_satisfaction_diff], TouchPoint_Master[filtered_name]="IFE"),
+                "F&B_diff", CALCULATE([S_client_satisfaction_diff], TouchPoint_Master[filtered_name]="In flight food and beverage"),
+                "Crew_diff", CALCULATE([S_client_satisfaction_diff], TouchPoint_Master[filtered_name]="Cabin Crew"),
+                "Arrivals_diff", CALCULATE([S_client_satisfaction_diff], TouchPoint_Master[filtered_name]="Arrivals experience"),
+                "Connections_diff", CALCULATE([S_client_satisfaction_diff], TouchPoint_Master[filtered_name]="Connections experience"),
+                "Operative_diff", CALCULATE([S_client_satisfaction_diff], TouchPoint_Master[filtered_name]="Punctuality")
             ),
             __ValueFilterDM2
         )

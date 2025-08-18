@@ -583,8 +583,8 @@ tools_prompts:
       **⚠️ ENFOQUE EN TENDENCIA**: El NPS diff vs período anterior es MÁS IMPORTANTE que el valor absoluto - indica deterioro/mejora reciente.
 
       **PRÓXIMO PASO ESTRATÉGICO**:
-      - Si necesitas perfiles de clientes reactivos → Considera customer_profile_tool filtrado por estas rutas
-      - Si aún falta validar causa → Vuelve a operative_data_tool o verbatims_tool con foco en estas rutas específicas
+      📋 **EJECUTA** customer_profile_tool para identificar perfiles reactivos filtrados por estas rutas
+      📋 **EJECUTA** verbatims_tool para validar causa tangible con foco en estas rutas específicas
 
       **ENFOQUE ANALÍTICO**: Las rutas identificadas aquí son la base para filtrar análisis posteriores.
 
@@ -600,8 +600,8 @@ tools_prompts:
       **⚠️ ENFOQUE EN VALORES ABSOLUTOS**: El NPS absoluto del período es el indicador clave - identifica rutas problemáticas.
 
       **PRÓXIMO PASO ESTRATÉGICO**:
-      - Si necesitas perfiles de clientes reactivos → Considera customer_profile_tool filtrado por estas rutas
-      - Si aún falta validar causa → Usa verbatims_tool con foco en estas rutas específicas
+      📋 **EJECUTA** customer_profile_tool para identificar perfiles reactivos filtrados por estas rutas
+      📋 **EJECUTA** verbatims_tool para validar causa tangible con foco en estas rutas específicas
 
       **ENFOQUE ANALÍTICO**: Las rutas identificadas aquí son la base para entender qué pasó durante el período específico.
 

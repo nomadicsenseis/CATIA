@@ -70,6 +70,40 @@ class CleanConversationTracker:
         self.identified_routes = []
         self.last_tool_context = None
         
+    def reset(self):
+        """Resets the agent's state for a new analysis run."""
+        self.anomaly_type = "unknown"
+        self.collected_data = {
+            "explanatory_drivers": None,
+            "ncs": None,
+            "routes": None,
+            "customer_profile": None,
+            "operative_data": None,
+            "verbatims": None
+        }
+        self.conversation_log = []
+        self.iteration_count = 0
+        self.previous_explanations = []
+        self.identified_routes = []
+        self.last_tool_context = None
+        
+    def reset(self):
+        """Resets the agent's state for a new analysis run."""
+        self.anomaly_type = "unknown"
+        self.collected_data = {
+            "explanatory_drivers": None,
+            "ncs": None,
+            "routes": None,
+            "customer_profile": None,
+            "operative_data": None,
+            "verbatims": None
+        }
+        self.conversation_log = []
+        self.iteration_count = 0
+        self.previous_explanations = []
+        self.identified_routes = []
+        self.last_tool_context = None
+        
     def log_message(self, message_type: str, content: str, metadata: Optional[Dict] = None):
         """Log a message in the conversation"""
         self.conversation_log.append({
@@ -467,15 +501,24 @@ class CausalExplanationAgent:
                 df['Shapdiff'] = pd.to_numeric(df['Shapdiff'], errors='coerce')
                 
                 # Filter out non-driver touchpoints (NPS values are not explanatory drivers)
-                touchpoint_col = 'TouchPoint_Master[filtered_name'
-                if touchpoint_col in df.columns:
+                candidate_touchpoint_cols = [
+                    'TouchPoint_Master[filtered_name]',
+                    'TouchPoint_Master[filtered_name',
+                    'filtered_name',
+                    'Filtered_name',
+                    'TouchPoint_Master filtered_name'
+                ]
+                touchpoint_col = next((c for c in candidate_touchpoint_cols if c in df.columns), None)
+                if touchpoint_col:
                     # Filter out NPS comparison values that are not real touchpoints
                     df_filtered = df[~df[touchpoint_col].isin(['NPS', 'NPS Comparative'])]
                 else:
                     df_filtered = df
                 
                 # Get ALL touchpoints, not just significant ones
-                all_touchpoints = df_filtered.dropna(subset=['Shapdiff'])
+                all_touchpoints = df_filtered.copy()
+                all_touchpoints['Shapdiff'] = pd.to_numeric(all_touchpoints['Shapdiff'], errors='coerce')
+                all_touchpoints = all_touchpoints.dropna(subset=['Shapdiff'])
                 
                 if len(all_touchpoints) > 0:
                     analysis_result.append("ALL SHAP drivers found (including non-significant):")
@@ -497,7 +540,11 @@ class CausalExplanationAgent:
                             
                             for i, (_, row) in enumerate(all_touchpoints_sorted.iterrows()):
                                 # No limit - show all SHAP values
-                                touchpoint = row.get('TouchPoint_Master[filtered_name', 'Unknown') if hasattr(row, 'get') else 'Unknown'
+                                if hasattr(row, 'get') and touchpoint_col and touchpoint_col in row:
+                                    touchpoint = row.get(touchpoint_col)
+                                else:
+                                    candidate_cols_in_row = [c for c in all_touchpoints_sorted.columns if isinstance(row.get(c, None), str)]
+                                    touchpoint = row.get(candidate_cols_in_row[0]) if candidate_cols_in_row else 'Unknown'
                                 shap_value = row['Shapdiff'] if 'Shapdiff' in row else 0.0
                                 sat_diff = row.get('Satisfaction diff', 'N/A') if hasattr(row, 'get') else 'N/A'
                                 
@@ -650,10 +697,15 @@ class CausalExplanationAgent:
         """Execute a tool for single period analysis"""
         try:
             if tool_name == "operative_data_tool":
+                # FIX: Define a fixed baseline period (e.g., 14 days prior to the analysis end date)
+                end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+                baseline_start_dt = end_dt - timedelta(days=14)
+                
                 return await self._operative_data_tool_single_period(
                     node_path=node_path,
                     start_date=start_date,
-                    end_date=end_date
+                    end_date=end_date,
+                    baseline_start_date=baseline_start_dt.strftime('%Y-%m-%d')
                 )
             elif tool_name == "ncs_tool":
                 return await self._ncs_tool_single_period(
@@ -690,35 +742,35 @@ class CausalExplanationAgent:
             self.logger.error(f"❌ Error executing {tool_name} for single period: {type(e).__name__}: {str(e)}")
             return f"ERROR executing {tool_name} for single period: {type(e).__name__}: {str(e)}"
     
-    async def _operative_data_tool_single_period(self, node_path: str, start_date, end_date) -> str:
+    async def _operative_data_tool_single_period(self, node_path: str, start_date: str, end_date: str, baseline_start_date: str) -> str:
         """Operative data tool for single period analysis (absolute values + correlation analysis)"""
         try:
-            self.logger.info(f"Collecting operative data for {node_path} on {end_date} for single period analysis")
+            self.logger.info(f"Collecting operative data for {node_path} from {baseline_start_date} to {end_date} for single period analysis")
             
             # Convert string dates to datetime
-            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
             end_dt = datetime.strptime(end_date, '%Y-%m-%d')
-            
-            # Get operative data for the specific period only (PBIDataCollector methods are async)
+            baseline_start_dt = datetime.strptime(baseline_start_date, '%Y-%m-%d')
+
+            # Get operative data for the entire range (baseline + target day)
             operative_data = await self.pbi_collector.collect_operative_data_for_date(
                 node_path=node_path,
                 target_date=end_dt,
-                comparison_days=7,  # Get 7 days for mean comparison
+                comparison_days=14,
                 use_flexible=True
             )
             
             if operative_data.empty:
-                return f"No operative data found for {node_path} on {end_date}"
+                return f"No operative data found for {node_path} in range {baseline_start_date} to {end_date}"
             
-            # Always use correlation analysis for single mode (shows both absolute values and correlation)
+            # Pass the full dataset and the specific target date for correlation analysis
             return await self._operative_data_tool_correlation_analysis(node_path, operative_data, end_date)
             
         except Exception as e:
             self.logger.error(f"❌ Error in single period operative data tool: {type(e).__name__}: {str(e)}")
             return f"ERROR in operative data tool: {type(e).__name__}: {str(e)}"
     
-    async def _operative_data_tool_correlation_analysis(self, node_path: str, operative_data: pd.DataFrame, end_date: str) -> str:
-        """Operative data tool with correlation analysis (absolute values + correlation with NPS anomaly)"""
+    async def _operative_data_tool_correlation_analysis(self, node_path: str, operative_data: pd.DataFrame, target_date_str: str) -> str:
+        """Operative data tool with correlation analysis using a fixed baseline."""
         try:
             # Clean the data
             cleaned_data = operative_data.copy()
@@ -727,20 +779,46 @@ class CausalExplanationAgent:
                 if col in cleaned_data.columns:
                     cleaned_data[col] = cleaned_data[col].replace('', pd.NA)
                     cleaned_data[col] = pd.to_numeric(cleaned_data[col], errors='coerce')
+
+            # Convert date column to datetime objects for filtering
+            # Handle different possible date column names
+            date_col = None
+            if 'Date' in cleaned_data.columns:
+                date_col = 'Date'
+            elif 'Date_Master' in cleaned_data.columns:
+                date_col = 'Date_Master'
+            elif 'Date_Master[Date' in cleaned_data.columns:
+                date_col = 'Date_Master[Date'
             
-            # Get target date data (most recent)
-            target_date_data = cleaned_data.iloc[-1] if len(cleaned_data) > 0 else cleaned_data.iloc[0]
+            if date_col is None:
+                return f"❌ No date column found in operative data. Available columns: {list(cleaned_data.columns)}"
             
-            # Calculate 7-day average for comparison
-            week_data = cleaned_data.tail(7)  # Last 7 days
+            # Standardize to 'Date' column
+            if date_col != 'Date':
+                cleaned_data['Date'] = cleaned_data[date_col]
             
-            if len(week_data) < 3:
-                return f"📊 **DATOS OPERATIVOS - ANÁLISIS CORRELACIÓN**\n📅 Fecha: {end_date}\n🎯 Segmento: {node_path}\n⚠️ Insuficientes datos para correlación (solo {len(week_data)} días disponibles)"
+            # Convert to datetime
+            cleaned_data['Date'] = pd.to_datetime(cleaned_data['Date'])
+            
+            # Get target date data
+            target_date_dt = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+            target_date_data = cleaned_data[cleaned_data['Date'].dt.date == target_date_dt]
+
+            if target_date_data.empty:
+                 return f"No operative data found for the specific date {target_date_str}"
+            
+            target_date_data = target_date_data.iloc[0]
+
+            # Calculate baseline average from the full dataset (excluding the target date itself)
+            baseline_data = cleaned_data[cleaned_data['Date'].dt.date < target_date_dt]
+            
+            if len(baseline_data) < 3:
+                return f"📊 **DATOS OPERATIVOS - ANÁLISIS CORRELACIÓN**\n📅 Fecha: {target_date_str}\n🎯 Segmento: {node_path}\n⚠️ Insuficientes datos para baseline (solo {len(baseline_data)} días disponibles)"
             
             # Format correlation analysis results
             result_parts = []
             result_parts.append(f"📊 **DATOS OPERATIVOS - ANÁLISIS CORRELACIÓN**")
-            result_parts.append(f"📅 Fecha: {end_date}")
+            result_parts.append(f"📅 Fecha: {target_date_str}")
             result_parts.append(f"🎯 Segmento: {node_path}")
             result_parts.append("")
             result_parts.append("**VALORES ABSOLUTOS Y CORRELACIÓN CON NPS:**")
@@ -751,12 +829,12 @@ class CausalExplanationAgent:
             
             for metric in numeric_columns:
                 if metric in cleaned_data.columns:
-                    week_values = week_data[metric].dropna()
+                    baseline_values = baseline_data[metric].dropna()
                     day_value = target_date_data.get(metric)
                     
-                    if not week_values.empty and not pd.isna(day_value) and len(week_values) >= 3:
-                        week_avg = week_values.mean()
-                        delta = day_value - week_avg
+                    if not baseline_values.empty and not pd.isna(day_value) and len(baseline_values) >= 3:
+                        baseline_avg = baseline_values.mean()
+                        delta = day_value - baseline_avg
                         
                         # Determine significance threshold
                         thresholds = {
@@ -772,7 +850,7 @@ class CausalExplanationAgent:
                         significance = " ⚠️" if is_significant else ""
                         
                         # Format metric line
-                        metric_line = f"• {metric}: {day_value:.1f}% (media: {week_avg:.1f}%, {direction}{abs(delta):.1f}pts){significance}"
+                        metric_line = f"• {metric}: {day_value:.1f}% (media: {baseline_avg:.1f}%, {direction}{abs(delta):.1f}pts){significance}"
                         metrics_analysis.append(metric_line)
                         
                         # Analyze correlation with NPS anomaly (assuming negative NPS anomaly)
@@ -1210,14 +1288,17 @@ class CausalExplanationAgent:
             single_period_sequence = [
                 "operative_data_tool",
                 "ncs_tool", 
-                "routes_tool"
+                "routes_tool",
+                "verbatims_tool",
+                "customer_profile_tool"
             ]
             
-            max_iterations = len(single_period_sequence)
+            max_iterations = 5  # Allow up to 5 iterations for dynamic tool selection
             iteration = 0
+            current_tool = single_period_sequence[0]  # Start with first tool
             
-            # Execute tools for single period analysis
-            for current_tool in single_period_sequence:
+            # Execute tools for single period analysis with dynamic progression
+            while current_tool and iteration < max_iterations:
                 iteration += 1
                 self.tracker.next_iteration()
                 
@@ -1268,6 +1349,14 @@ class CausalExplanationAgent:
                     self.logger.info(f"💭 Reflection captured for {current_tool}")
                 else:
                     self.logger.warning(f"⚠️ No reflection captured for {current_tool}")
+                
+                # Determine next tool dynamically
+                current_tool = self._determine_next_tool_dynamic(current_tool, iteration, max_iterations)
+                if current_tool:
+                    self.logger.info(f"🔄 Next tool determined: {current_tool}")
+                else:
+                    self.logger.info(f"✅ No more tools to execute, proceeding to synthesis")
+                    break
                 
             # Final synthesis for single period
             try:
@@ -1681,39 +1770,46 @@ class CausalExplanationAgent:
             operative_parts.append(comparison_info)
             operative_parts.append("")
             
-            # Add OTP analysis if available
-            if specific_explanations['otp_explanation'] != "No OTP data available":
-                operative_parts.append(f"🕒 **OTP Performance**: {specific_explanations['otp_explanation']}")
-            
-            # Add Load Factor analysis if available
-            if specific_explanations['load_factor_explanation'] != "No Load Factor data available":
-                operative_parts.append(f"🎯 **Load Factor**: {specific_explanations['load_factor_explanation']}")
-            
-            # Add other significant metrics
+            # Show all metrics with changes vs previous period
             metrics = analysis.get("metrics", {})
-            other_metrics = []
-            
-            for metric, data in metrics.items():
-                if metric not in ['OTP15_adjusted', 'Load_Factor']:  # Skip already covered metrics
-                    if data.get('is_significant', False):
-                        direction = "↗️" if data['direction'] == 'higher' else "↘️"
+            if metrics:
+                operative_parts.append(f"📊 **Métricas Operativas vs Período Anterior**:")
+                
+                for metric, data in metrics.items():
+                    # Skip metrics with no real data (all zeros or identical values)
+                    current_val = data.get('current_value', data.get('current', 0))
+                    previous_val = data.get('previous_value', data.get('previous', 0))
+                    
+                    # Skip Mishandling if both current and previous are 0 (no data for this segment)
+                    if metric == 'Mishandling' and current_val == 0 and previous_val == 0:
+                        continue
                         
-                        if comparison_mode == "vslast":
-                            current_val = data.get('current_value', data.get('day_value', 'N/A'))
-                            previous_val = data.get('previous_value', 'N/A')
-                            change_text = f"{current_val} vs {previous_val} previous period"
-                        else:
-                            baseline_value = data.get('week_average', data.get('previous_value', 'período de referencia'))
-                            day_val = data.get('day_value', data.get('current_value', 'N/A'))
-                            change_text = f"{day_val} vs {baseline_value} (período de referencia)"
+                    direction = "↗️" if data['direction'] == 'higher' else "↘️"
+                    
+                    if comparison_mode == "vslast":
+                        delta = data.get('delta', data.get('difference', 0))
+                        change_pct = data.get('change_pct', 0)
                         
+                        # Determine if change supports or contradicts NPS anomaly
+                        correlation_status = "❓"
+                        if anomaly_type_for_analysis.lower() == 'negative':
+                            if metric in ['OTP15_adjusted']:  # Direct correlation
+                                correlation_status = "✅ Explica NPS↓" if delta < 0 else "❌ Contradice NPS↓"
+                            elif metric in ['Load_Factor', 'Misconex', 'Mishandling']:  # Inverse correlation
+                                correlation_status = "✅ Explica NPS↓" if delta > 0 else "❌ Contradice NPS↓"
+                        elif anomaly_type_for_analysis.lower() == 'positive':
+                            if metric in ['OTP15_adjusted']:  # Direct correlation
+                                correlation_status = "✅ Explica NPS↑" if delta > 0 else "❌ Contradice NPS↑"
+                            elif metric in ['Load_Factor', 'Misconex', 'Mishandling']:  # Inverse correlation
+                                correlation_status = "✅ Explica NPS↑" if delta < 0 else "❌ Contradice NPS↑"
+                        
+                        metric_display = metric.replace('_', ' ').replace('adjusted', '').title()
+                        operative_parts.append(f"   • **{metric_display}**: {current_val} vs {previous_val} ({direction}{abs(delta):.1f}, {change_pct:+.1f}%) {correlation_status}")
+                    else:
+                        baseline_value = data.get('week_average', data.get('previous_value', 'N/A'))
+                        day_val = data.get('day_value', data.get('current_value', 'N/A'))
                         metric_display = metric.replace('_', ' ').title()
-                        impact = self._get_metric_impact_summary(metric, data['direction'])
-                        other_metrics.append(f"   • **{metric_display}**: {direction} {change_text} ({data['delta']:+.1f}) - {impact}")
-            
-            if other_metrics:
-                operative_parts.append(f"📈 **Other Metrics**:")
-                operative_parts.extend(other_metrics)
+                        operative_parts.append(f"   • **{metric_display}**: {day_val} vs {baseline_value} (referencia)")
             
             # Add correlation summary
             operative_parts.append("")
@@ -2768,7 +2864,7 @@ class CausalExplanationAgent:
             self.logger.error(f"💥 Full traceback: {traceback.format_exc()}")
             return f"Error in NCS analysis: {str(e)}"
 
-    async def _routes_tool(self, node_path: str, start_date: str, end_date: str, min_surveys: int = 3, anomaly_type: str = "unknown") -> str:
+    async def _routes_tool(self, node_path: str, start_date: str, end_date: str, min_surveys: int = 2, anomaly_type: str = "unknown") -> str:
         """
         Enhanced tool for analyzing route-specific NPS performance from ALL sources:
         1. Routes from explanatory drivers (ordered by NPS and touchpoint satisfactions)
@@ -2893,17 +2989,41 @@ class CausalExplanationAgent:
             if pax_col:
                 df = df[df[pax_col].fillna(0) >= min_surveys]
             
-            # Find touchpoint satisfaction columns for each driver
+            # Find touchpoint satisfaction columns for each driver (use CSAT diff for ordering)
             touchpoint_cols = {}
+            touchpoint_abs_cols = {}  # Store absolute CSAT columns for display
             for touchpoint in main_touchpoints:
-                # Map touchpoint names to exact column names from the template
-                touchpoint_mapping = {
+                # Map touchpoint names to CSAT diff column names (for ordering)
+                touchpoint_diff_mapping = {
+                    'check-in': 'Check_in_diff',
+                    'check_in': 'Check_in_diff',
+                    'lounge': 'Lounge_diff',
+                    'boarding': 'Boarding_diff',
+                    'aircraft interior': 'Aircraft_interior_diff',
+                    'aircraft_interior': 'Aircraft_interior_diff',
+                    'wi-fi': 'Wi-Fi_diff',
+                    'wifi': 'Wi-Fi_diff',
+                    'ife': 'IFE_diff',
+                    'f&b': 'F&B_diff',
+                    'fb': 'F&B_diff',
+                    'crew': 'Crew_diff',
+                    'cabin crew': 'Crew_diff',
+                    'arrivals': 'Arrivals_diff',
+                    'arrivals experience': 'Arrivals_diff',
+                    'connections': 'Connections_diff',
+                    'connections experience': 'Connections_diff',
+                    'punctuality': 'Operative_diff'
+                    # Note: Other touchpoints not available in routes data
+                }
+                
+                # Map touchpoint names to absolute CSAT column names (for display)
+                touchpoint_abs_mapping = {
                     'check-in': 'Check_in',
                     'check_in': 'Check_in',
                     'lounge': 'Lounge',
                     'boarding': 'Boarding',
-                    'aircraft interior': 'Aircraft interior',
-                    'aircraft_interior': 'Aircraft interior',
+                    'aircraft interior': 'Aircraft_interior',
+                    'aircraft_interior': 'Aircraft_interior',
                     'wi-fi': 'Wi-Fi',
                     'wifi': 'Wi-Fi',
                     'ife': 'IFE',
@@ -2915,43 +3035,26 @@ class CausalExplanationAgent:
                     'arrivals experience': 'Arrivals',
                     'connections': 'Connections',
                     'connections experience': 'Connections',
-                    'journey preparation support': 'Journey preparation support',
-                    'journey_preparation_support': 'Journey preparation support',
-                    'airport security': 'Airport security',
-                    'airport_security': 'Airport security',
-                    'punctuality': 'Operative',
-                    'pilot\'s announcements': 'Pilot\'s announcements',
-                    'pilots_announcements': 'Pilot\'s announcements',
-                    'ib plus loyalty program': 'IB Plus loyalty program',
-                    'ib_plus_loyalty_program': 'IB Plus loyalty program',
-                    'ticket price': 'Ticket Price',
-                    'ticket_price': 'Ticket Price',
-                    'load factor': 'Load Factor',
-                    'load_factor': 'Load Factor'
+                    'punctuality': 'Operative'
+                    # Note: Other touchpoints not available in routes data
                 }
                 
-                # Try to find the exact column name
-                exact_col = touchpoint_mapping.get(touchpoint.lower())
-                if exact_col and exact_col in df.columns:
-                    touchpoint_cols[touchpoint] = exact_col
-                    self.logger.info(f"✅ Found exact column for {touchpoint}: {exact_col}")
+                # Try to find the CSAT diff column (for ordering)
+                exact_diff_col = touchpoint_diff_mapping.get(touchpoint.lower())
+                if exact_diff_col and exact_diff_col in df.columns:
+                    touchpoint_cols[touchpoint] = exact_diff_col
+                    self.logger.info(f"✅ Found CSAT diff column for {touchpoint}: {exact_diff_col}")
                 else:
-                    # Fallback: try different possible names
-                    possible_names = [
-                        touchpoint.lower(),
-                        touchpoint.lower().replace(' ', '_'),
-                        touchpoint.lower().replace(' ', ''),
-                        touchpoint,
-                        f"{touchpoint.lower()}_csat",
-                        f"{touchpoint.lower()}_satisfaction",
-                        f"{touchpoint.lower()}_score"
-                    ]
-                    col = self._find_column(df, possible_names)
-                    if col:
-                            touchpoint_cols[touchpoint] = col
-                            self.logger.info(f"✅ Found column for {touchpoint}: {col} (fallback)")
-                    else:
-                            self.logger.warning(f"⚠️ No column found for touchpoint: {touchpoint}")
+                    self.logger.warning(f"⚠️ No CSAT diff column found for touchpoint: {touchpoint}")
+                    continue
+                
+                # Try to find the absolute CSAT column (for display)
+                exact_abs_col = touchpoint_abs_mapping.get(touchpoint.lower())
+                if exact_abs_col and exact_abs_col in df.columns:
+                    touchpoint_abs_cols[touchpoint] = exact_abs_col
+                    self.logger.info(f"✅ Found absolute CSAT column for {touchpoint}: {exact_abs_col}")
+                else:
+                    self.logger.warning(f"⚠️ No absolute CSAT column found for touchpoint: {touchpoint}")
             
             if not touchpoint_cols:
                 return {"routes": [], "analysis": f"❌ No touchpoint columns found for drivers: {main_touchpoints}. Available: {list(df.columns)}", "source": "explanatory_drivers"}
@@ -2981,17 +3084,17 @@ class CausalExplanationAgent:
                     if shap_value == 0.0:
                         self.logger.warning(f"⚠️ DEBUG SHAP: No SHAP value found for touchpoint '{touchpoint}'")
                 
-                # Sort routes by this touchpoint's satisfaction score
-                # For negative SHAP values (negative impact): sort by lowest CSAT first (worst performance)
-                # For positive SHAP values (positive impact): sort by highest CSAT first (best performance)
+                # Sort routes by this touchpoint's CSAT difference (not absolute CSAT)
+                # For negative SHAP values (negative impact): sort by worst CSAT diff first (biggest drops)
+                # For positive SHAP values (positive impact): sort by best CSAT diff first (biggest improvements)
                 if shap_value < 0:
-                    # Negative SHAP: sort by lowest CSAT first (worst performance)
+                    # Negative SHAP: sort by worst CSAT diff first (biggest drops)
                     sorted_df = df.sort_values(by=col, ascending=True)
-                    sort_desc = f"worst {touchpoint} satisfaction first (negative SHAP: {shap_value:.3f})"
+                    sort_desc = f"worst {touchpoint} CSAT change first (negative SHAP: {shap_value:.3f})"
                 else:
-                    # Positive SHAP: sort by highest CSAT first (best performance)
+                    # Positive SHAP: sort by best CSAT diff first (biggest improvements)
                     sorted_df = df.sort_values(by=col, ascending=False)
-                    sort_desc = f"best {touchpoint} satisfaction first (positive SHAP: {shap_value:.3f})"
+                    sort_desc = f"best {touchpoint} CSAT change first (positive SHAP: {shap_value:.3f})"
             
                 # Get top 5 routes for this driver
                 top_routes = sorted_df.head(5)
@@ -2999,23 +3102,28 @@ class CausalExplanationAgent:
                 analysis_summary += f"\n   🔝 Top 5 routes by {touchpoint} ({sort_desc}):\n"
                 
                 for _, route in top_routes.iterrows():
+                    # Get absolute CSAT value for display
+                    abs_col = touchpoint_abs_cols.get(touchpoint)
+                    csat_abs = round(route[abs_col], 1) if abs_col and pd.notna(route[abs_col]) else None
+                    
                     route_info = {
                         "route": route[route_col],
                         "driver": touchpoint,
-                        "driver_score": round(route[col], 1) if pd.notna(route[col]) else None,
+                        "driver_score": csat_abs,  # Absolute CSAT for display
+                        "driver_diff": round(route[col], 1) if pd.notna(route[col]) else None,  # CSAT diff (used for ordering)
                         "nps": round(route[nps_col], 1) if nps_col and pd.notna(route[nps_col]) else None,
                         "nps_diff": round(route[nps_diff_col], 1) if nps_diff_col and pd.notna(route[nps_diff_col]) else None,
                         "pax": int(route[pax_col]) if pax_col and pd.notna(route[pax_col]) else 0,
                         "source": "explanatory_drivers"
                     }
-                
-                routes_analysis.append(route_info)
-            
-                # Add to analysis summary
-                driver_score_str = f"{route_info['driver_score']}" if route_info['driver_score'] is not None else "N/A"
-                nps_str = f", NPS {route_info['nps']}" if route_info['nps'] is not None else ""
-                nps_diff_str = f", vs L7d: {route_info['nps_diff']:+.1f}" if route_info['nps_diff'] is not None else ""
-                analysis_summary += f"     • {route_info['route']}: {touchpoint} {driver_score_str}{nps_str}{nps_diff_str}, Pax {route_info['pax']}\n"
+                    
+                    routes_analysis.append(route_info)
+                    
+                    # Add to analysis summary
+                    driver_score_str = f"{route_info['driver_score']}" if route_info['driver_score'] is not None else "N/A"
+                    nps_str = f", NPS {route_info['nps']}" if route_info['nps'] is not None else ""
+                    nps_diff_str = f", vs L7d: {route_info['nps_diff']:+.1f}" if route_info['nps_diff'] is not None else ""
+                    analysis_summary += f"     • {route_info['route']}: {touchpoint} {driver_score_str}{nps_str}{nps_diff_str}, Pax {route_info['pax']}\n"
             
             return {
                 "routes": routes_analysis,
@@ -3043,7 +3151,8 @@ class CausalExplanationAgent:
             if df.empty:
                 return {"routes": [], "analysis": "❌ No general routes data found", "source": "explanatory_drivers"}
             
-            df.columns = [col.strip('[]') for col in df.columns]
+            # Clean column names safely
+            df = self._safe_clean_columns(df, method="strip")
             route_col = self._find_column(df, ['route'])
             nps_col = self._find_column(df, ['nps'])
             pax_col = self._find_column(df, ['pax', 'n (route)'])
@@ -3117,8 +3226,8 @@ class CausalExplanationAgent:
             if df_ncs.empty:
                 return {"routes": [], "analysis": f"❌ No data found for NCS routes: {', '.join(all_ncs_routes)}", "source": "ncs"}
             
-            # Clean column names
-            df_ncs.columns = [col.replace('[', '').replace(']', '') for col in df_ncs.columns]
+            # Clean column names safely
+            df_ncs = self._safe_clean_columns(df_ncs, method="replace")
             
             # Filter to only include the NCS routes
             route_col = self._find_column(df_ncs, ['route', 'Route', 'ROUTE'])
@@ -3497,7 +3606,7 @@ class CausalExplanationAgent:
                         continue
                     
                     # Clean column names (remove brackets) - same as routes_tool
-                    df.columns = [col.replace('[', '').replace(']', '') for col in df.columns]
+                    df = self._safe_clean_columns(df, method="replace")
                     
                     # Filter by minimum surveys
                     if 'Pax' in df.columns:
@@ -3712,6 +3821,33 @@ class CausalExplanationAgent:
             self.logger.error(f"💥 Error in customer profile NPS impact analysis: {str(e)}")
             return f"Error in customer profile NPS impact analysis: {str(e)}"
     
+    def _safe_clean_columns(self, df: pd.DataFrame, method: str = "strip") -> pd.DataFrame:
+        """
+        Safely clean column names by removing brackets, handling None columns
+        
+        Args:
+            df: DataFrame to clean
+            method: "strip" for .strip('[]') or "replace" for .replace('[', '').replace(']', '')
+        """
+        if df.empty:
+            return df
+            
+        cleaned_columns = []
+        for col in df.columns:
+            if col is not None and isinstance(col, str):
+                if method == "strip":
+                    cleaned_columns.append(col.strip('[]'))
+                elif method == "replace":
+                    cleaned_columns.append(col.replace('[', '').replace(']', ''))
+                else:
+                    cleaned_columns.append(col)
+            else:
+                # Log problematic columns and use a safe default
+                self.logger.warning(f"⚠️ Found None/invalid column name: {col}, using default")
+                cleaned_columns.append(f"Column_{len(cleaned_columns)}")
+        df.columns = cleaned_columns
+        return df
+
     def _create_temporal_ncs_comparison(self, current_data: pd.DataFrame, comparison_data: pd.DataFrame, 
                                       node_path: str, current_start: str, current_end: str, 
                                       comparison_start: str, comparison_end: str) -> dict:
@@ -4084,9 +4220,9 @@ class CausalExplanationAgent:
             prompt_size = len(reflection_prompt)
             self.logger.debug(f"📏 Reflection prompt size: {prompt_size} chars")
             
-            if prompt_size > 30000:  # 30KB limit for reflection
+            if prompt_size > 60000:  # 60KB limit for reflection
                 self.logger.warning(f"⚠️ Reflection prompt very large ({prompt_size} chars) - truncating tool result")
-                truncated_result = tool_result[:15000] + "\n\n[... TOOL RESULT TRUNCATED DUE TO SIZE ...]"
+                truncated_result = tool_result[:30000] + "\n\n[... TOOL RESULT TRUNCATED DUE TO SIZE ...]"
                 reflection_template = self._get_reflection_prompt(mode)
                 if reflection_template:
                     # Ensure causal_filter has a safe value for template formatting
@@ -4116,7 +4252,7 @@ class CausalExplanationAgent:
                     tools=[],  # No tools for reflection
                     structured_output=None  # No structured output for reflections
                 ),
-                timeout=120.0  # 2 minute timeout for reflections
+                timeout=300.0  # 5 minute timeout for reflections
             )
             
             self.logger.debug(f"✅ Reflection response received for {tool_name}")
@@ -4174,7 +4310,7 @@ class CausalExplanationAgent:
         request_size = len(enhanced_final_request)
         self.logger.info(f"📏 Final request size: {request_size} chars")
         
-        if request_size > 50000:  # 50KB limit (reduced from 100KB)
+        if request_size > 100000:  # 100KB limit
             self.logger.warning(f"⚠️ Final request very large ({request_size} chars) - truncating data summary")
             # Truncate data summary to prevent LLM overload
             truncated_summary = data_summary[:25000] + "\n\n[... DATA TRUNCATED DUE TO SIZE ...]"
@@ -4467,8 +4603,10 @@ class CausalExplanationAgent:
     
     def _apply_contextual_filtering(self, ncs_data: pd.DataFrame, node_path: str) -> pd.DataFrame:
         """
-        Apply contextual filtering when route-based filtering fails.
-        Uses keywords and patterns relevant to the segment.
+        Apply contextual filtering with the correct NCS logic:
+        1. ALWAYS filter by haul (Global, LH, SH) based on routes/airports
+        2. ONLY filter by cabin when we're at cabin level AND the incident specifies it affects ONLY another cabin
+        3. NEVER discard incidents just because they don't mention cabin
         """
         try:
             # Get segment filters
@@ -4480,7 +4618,7 @@ class CausalExplanationAgent:
             incident_col = ncs_data.columns[0]
             filtered_ncs = ncs_data.copy()
             
-            # Apply haul-based contextual filtering
+            # STEP 1: ALWAYS apply haul-based filtering (Global, LH, SH)
             if hauls and len(hauls) == 1:
                 haul_type = hauls[0]
                 
@@ -4511,9 +4649,11 @@ class CausalExplanationAgent:
                         self.logger.info(f"Long-haul contextual filtering: {len(lh_incidents)}/{len(filtered_ncs)} incidents")
                         filtered_ncs = lh_incidents
             
-            # Apply cabin-based contextual filtering
+            # STEP 2: Apply cabin filtering ONLY when we're at cabin level AND need to exclude incidents that affect ONLY other cabins
             if cabins and len(cabins) == 1:
                 cabin_type = cabins[0].lower()
+                
+                # Define keywords for each cabin type
                 cabin_keywords = {
                     'business': ['business', 'ejecutiva', 'premium', 'preferente', 'clase.*business'],
                     'economy': ['economy', 'turista', 'económica', 'clase.*turista'],
@@ -4521,19 +4661,38 @@ class CausalExplanationAgent:
                 }
                 
                 if cabin_type in cabin_keywords:
-                    cabin_pattern = '|'.join([f'\\b{kw}\\b' for kw in cabin_keywords[cabin_type]])
-                    cabin_mask = filtered_ncs[incident_col].str.contains(cabin_pattern, na=False, regex=True, case=False)
-                    cabin_incidents = filtered_ncs[cabin_mask]
+                    # Find incidents that mention OTHER cabins (to potentially exclude them)
+                    other_cabin_patterns = []
+                    for other_cabin, keywords in cabin_keywords.items():
+                        if other_cabin != cabin_type:
+                            other_cabin_patterns.extend(keywords)
                     
-                    if len(cabin_incidents) > 0:
-                        self.logger.info(f"Cabin contextual filtering: {len(cabin_incidents)}/{len(filtered_ncs)} incidents")
-                        filtered_ncs = cabin_incidents
+                    if other_cabin_patterns:
+                        # Pattern to find incidents that mention ONLY other cabins (exclusive language)
+                        exclusive_keywords = ['solo', 'solamente', 'únicamente', 'exclusivamente', 'solo.*clase', 'solo.*cabina']
+                        exclusive_pattern = '|'.join([f'\\b{kw}\\b' for kw in exclusive_keywords])
+                        
+                        # Combine patterns to find incidents that mention other cabins with exclusive language
+                        other_cabin_pattern = '|'.join([f'\\b{kw}\\b' for kw in other_cabin_patterns])
+                        combined_pattern = f"({exclusive_pattern}).*({other_cabin_pattern})|({other_cabin_pattern}).*({exclusive_pattern})"
+                        
+                        # Find incidents to potentially exclude
+                        exclusive_mask = filtered_ncs[incident_col].str.contains(combined_pattern, na=False, regex=True, case=False)
+                        incidents_to_exclude = filtered_ncs[exclusive_mask]
+                        
+                        if len(incidents_to_exclude) > 0:
+                            self.logger.info(f"Cabin exclusion filtering: {len(incidents_to_exclude)} incidents mention ONLY other cabins, excluding them")
+                            # Remove these incidents from our filtered data
+                            filtered_ncs = filtered_ncs[~exclusive_mask]
+                        
+                        self.logger.info(f"After cabin filtering: {len(filtered_ncs)} incidents remain (keeping incidents that don't specify cabin or affect our cabin)")
             
-            # If no contextual matches found, return all data for Global analysis
+            # STEP 3: If no incidents remain after filtering, return original data for Global analysis
             if len(filtered_ncs) == 0 and "Global" in node_path:
-                self.logger.info("No contextual matches found, returning all NCS data for Global analysis")
+                self.logger.info("No incidents remain after filtering, returning all NCS data for Global analysis")
                 return ncs_data
             
+            self.logger.info(f"Final NCS filtering result: {len(filtered_ncs)}/{len(ncs_data)} incidents after contextual filtering")
             return filtered_ncs
             
         except Exception as e:

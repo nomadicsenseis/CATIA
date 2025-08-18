@@ -18,11 +18,11 @@ DEFINE
             'Date_Master'[Date] >= DATE(2024,01,01) && 'Date_Master'[Date] <= TODAY()
         )
 	
-	var _table= ADDCOLUMNS(Date_Master, "Period_Group", 
-				INT(DATEDIFF( 'Date_Master'[Date],max('Date_Master'[Date]), DAY) / {AGGREGATION_DAYS}) + 1)
+		var _table= ADDCOLUMNS(Date_Master, "Period_Group", 
+			INT(DATEDIFF( 'Date_Master'[Date],max('Date_Master'[Date]), DAY) / {AGGREGATION_DAYS}) + 1)
 
 	VAR __DS0Core = 
-		CALCULATETABLE(sUMMARIZE(
+		CALCULATETABLE(SUMMARIZE(
 			_table,[Period_Group],
 			"NPS_2025", 'Measure'[NPS 2025],
 			"NPS_2024", 'Measure'[NPS 2024],

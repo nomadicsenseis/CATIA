@@ -1,0 +1,264 @@
+===== SYSTEM =====
+
+Eres un experto analista ejecutivo especializado en completar análisis de NPS comprehensivos.
+
+⚠️ **CRÍTICO - NO INVENTES DATOS:**
+Si hay algún dato que te falta, NO lo supongas ni inventes. En su lugar, indica claramente que ese dato específico no está disponible. Por ejemplo: "El análisis diario para Economy LH no está disponible" o "Los datos de rutas para el día 25 no están incluidos en el análisis".
+
+⚠️ **IMPORTANTE - SI HAY DATOS DIARIOS, ÚSALOS:**
+Si se te proporciona análisis diario en la sección "ANÁLISIS DIARIO SINGLE", DEBES usarlo e integrarlo en el resumen. NO digas que "no está disponible" si los datos están presentes en el input.
+
+⚠️ **FORMATO DE NÚMEROS - UN DECIMAL:**
+Todos los números, porcentajes, métricas y valores NPS deben mostrarse con exactamente UN decimal. Por ejemplo: 19.8 (no 19.75), -4.4 (no -4.39), 93.5% (no 93.53%), etc.
+
+TU FUNCIÓN:
+- Tomar la síntesis ejecutiva del interpreter semanal TAL COMO ESTÁ
+- INTEGRAR el detalle diario del interpreter DENTRO de cada sección correspondiente de la síntesis semanal
+- Identificar días especialmente reseñables en el detalle diario
+- Crear un resumen fluido y ejecutivo
+
+IMPORTANTE:
+- NO incluyas recomendaciones adicionales
+- NO uses títulos como "Integración del análisis diario" o similares
+- El análisis diario debe fluir naturalmente como un párrafo adicional
+- Identifica días especialmente reseñables en el detalle diario
+- Haz el texto fluido y ejecutivo, no técnico
+- Solo incluye días que tengan análisis relevantes (con caídas/subidas o datos significativos)
+- Para cabinas/radio sin incidencias: comenta solo su NPS del período y el del período de comparación
+- NO hables de "anomalias". Habla de "caídas" o "subidas" de NPS.
+- SI hay datos diarios en el input, ÚSALOS. NO digas que "no están disponibles" si están presentes.
+
+ANCLAJE DE SECCIONES (case-insensitive):
+- Global (los 2 primeros párrafos de la síntesis)
+- Economy SH
+- Business SH
+- Economy LH
+- Business LH
+- Premium LH
+
+INTEGRACIÓN POR SECCIÓN:
+- Tras cada bloque semanal anterior, añade exactamente un párrafo narrativo con los días reseñables en orden cronológico (28-jul → 03-ago si existen).
+- Incluye cuando estén disponibles: NPS actual, baseline y diferencia; métricas clave (p.ej., % mishandling, nº cambios de aeronave, reprogramaciones, reubicaciones) y rutas/destinos citados.
+- Si el bloque semanal indica "sin datos", REDACTA como: "Se mantiene estable a nivel semanal; pueden existir oscilaciones diarias que se detallan a continuación" y añade igualmente el párrafo diario si hay datos.
+- No modifiques, no reordenes ni resumas el texto semanal. No alteres sus cifras ni redondeos.
+
+ESTILO Y LÉXICO:
+- Estilo ejecutivo, fluido y conciso. No técnico.
+- Usa "subidas/bajadas", "mejoras/deterioros". Evita "anomalía/s".
+- Máximo 1-2 frases por día; prioriza 28, 29, 30, 31 de julio; 1, 2, 3 de agosto.
+- No inventes cifras. Si no hay NPS exacto en el diario, describe el evento y su dirección (subida/bajada) sin números.
+
+
+===== USER =====
+
+Completa el análisis comprehensivo:
+
+**ANÁLISIS SEMANAL COMPARATIVO:**
+# 📈 SÍNTESIS EJECUTIVA
+
+Durante la semana del 8 al 14 de agosto de 2025, Iberia experimentó un deterioro generalizado del NPS causado por una crisis operativa meteorológica sistémica que afectó principalmente la puntualidad y los procesos de embarque. El NPS global cayó 4.38 puntos, pasando de 19.75 a 15.36, impulsado por eventos externos críticos como el cierre del aeropuerto de México por inundaciones y ceniza volcánica afectando la ruta NRT-MAD. Esta crisis se manifestó de manera diferencial según el nivel de servicio: Long Haul sufrió el mayor impacto con una caída de 8.35 puntos (de 14.33 a 5.98), mientras que Short Haul mostró mayor resistencia con un deterioro de 2.76 puntos (de 22.22 a 19.46). La evidencia operativa confirma esta causa con un aumento del 34% en mishandling de equipaje, incremento del 9.5% en retrasos y deterioro en métricas de puntualidad, validando perfectamente los drivers SHAP negativos identificados en punctuality (-2.467) y boarding (-1.034).
+
+Las rutas más afectadas se concentraron geográficamente en corredores Europa-Madrid y Latinoamérica-Madrid, con casos críticos como CDG-MAD (-40.0 puntos), FRA-MAD (-71.2 puntos), GIG-MAD (-15.7 puntos) y MAD-MEX (-23.0 puntos), todas vinculadas directamente a los incidentes meteorológicos y sus efectos cascada. Los grupos de clientes más reactivos fueron los pasajeros de Economy Long Haul, especialmente en rutas sudamericanas y centroamericanas, mientras que paradójicamente Business Long Haul demostró inmunidad operativa al convertir la crisis en mejora de experiencia gracias a servicios premium compensatorios.
+
+**ECONOMY SH: Crisis Operativa Europea con Compensación Doméstica**
+La cabina Economy de Short Haul registró un NPS de 19.07 durante la semana del 8-14 de agosto, con un deterioro de 3.20 puntos respecto a la semana anterior. La causa principal fue una crisis operativa concentrada en rutas europeas principales, evidenciada por el aumento del 21.2% en retrasos (de 85 a 103 incidentes) que generó drivers SHAP negativos críticos en punctuality (-2.864) y boarding (-1.381). Esta caída se reflejó especialmente en rutas como BLQ-MAD (NPS -25.0, deterioro -86.4 puntos), FRA-MAD (NPS -25.0, deterioro -71.2 puntos) y CMN-MAD (NPS -50.0, deterioro -70.0 puntos), mientras que las rutas domésticas españolas actuaron como factor compensatorio con mejoras significativas en LCG-MAD (+32.8 puntos) y BCN-MAD (+23.9 puntos). Los perfiles más reactivos incluyen viajeros en rutas Europa Central y Mediterráneo, mostrando extrema sensibilidad a problemas de puntualidad con scores CSAT de 0.0-0.5.
+
+**BUSINESS SH: Divergencia Extrema por Compañía**
+El segmento Business de Short Haul mostró una divergencia operativa extrema entre compañías, con IB registrando un NPS de 35.26 (mejora de 7.65 puntos) mientras YW colapsó a 1.16 (deterioro de 10.89 puntos) versus la semana anterior. Esta evolución se explica principalmente por la gestión diferencial de la misma crisis operativa: IB capitalizó la reducción del 28.1% en cancelaciones generando un driver SHAP positivo en journey preparation (+3.701), mientras YW sufrió fallos simultáneos en servicios críticos con drivers negativos en food & beverage (-1.921) y journey preparation (-1.893). El impacto fue especialmente visible en las mismas 24 rutas afectadas con hub Madrid como epicentro, donde IB optimizó la experiencia y YW experimentó colapso sistémico, evidenciando que los clientes Business Short Haul presentan extrema sensibilidad diferencial según la gestión operativa específica de cada compañía.
+
+**ECONOMY LH: Colapso Severo por Vulnerabilidad Intercontinental**
+La cabina Economy de Long Haul experimentó el mayor deterioro de toda la red, registrando un NPS de 1.59 durante el período analizado con una caída severa de 11.15 puntos respecto a la semana anterior. La causa principal fue la crisis operativa meteorológica multifactorial que impactó desproporcionadamente este segmento debido a su exposición intercontinental, evidenciada por el driver SHAP punctuality más negativo de toda la red (-4.058) y validada por el aumento del 34% en mishandling y deterioro del 4.8% en puntualidad. Esta caída se reflejó especialmente en rutas como JFK-MAD (NPS -7.7, deterioro -31.7 puntos), MAD-MEX (NPS 28.6, deterioro -23.0 puntos) y LIM-MAD (NPS 0.0, deterioro -21.5 puntos), mientras que los perfiles más reactivos incluyen viajeros long-haul con alta sensibilidad a disrupciones sistémicas, especialmente aquellos con origen/destino Latinoamérica que representaron el 61.5% de la exposición geográfica.
+
+**BUSINESS LH: Inmunidad Operativa Paradójica**
+La cabina Business de Long Haul demostró una paradoja operativa excepcional, registrando un NPS de 28.66 con una mejora de 7.12 puntos vs la semana anterior, a pesar de enfrentar la misma crisis operativa severa que afectó al resto de segmentos. Los drivers principales fueron journey preparation support (+3.330 SHAP), check-in (+2.510 SHAP) e IB Plus loyalty program (+1.616 SHAP), que compensaron completamente el deterioro operativo real del 34% en mishandling y 4.8% en puntualidad. Esta inmunidad operativa impactó las mismas rutas críticas donde otros segmentos colapsaron, evidenciando que los clientes Business Long Haul priorizan servicios premium sobre eficiencia operativa, con la única excepción del deterioro en food & beverage (-4.038 SHAP) como factor crítico de insatisfacción en la propuesta premium.
+
+**PREMIUM LH: Resistencia Moderada con Deterioro Controlado**
+El segmento Premium de Long Haul registró un NPS de 20.62 durante la semana analizada con un deterioro controlado de 1.60 puntos vs la semana anterior. Las causas dominantes fueron punctuality (-2.225 SHAP), journey preparation support (-1.903 SHAP) y arrivals experience (-1.748 SHAP), todas vinculadas directamente a la crisis operativa meteorológica que incrementó los incidentes en 22.4% y el mishandling en 34%. Esta resistencia moderada fue especialmente evidente en las 23 rutas críticas afectadas, incluyendo corredores México-Europa y rutas Pacífico impactadas por ceniza volcánica, donde los clientes Premium mostraron mayor tolerancia que Economy pero menor inmunidad que Business, posicionándose como segmento intermedio en la progresión lógica de reactividad según nivel de servicio.
+
+**ANÁLISIS DIARIO SINGLE:**
+📅 2025-08-08_to_2025-08-08:
+📈 SÍNTESIS EJECUTIVA:
+
+El análisis del 8 de agosto de 2025 revela un patrón diferencial significativo en la respuesta de los segmentos ante disrupciones operativas concentradas en Short Haul. Los segmentos premium experimentaron mejoras excepcionales en satisfacción: Business LH alcanzó un NPS de 48.15 puntos (mejora de +23.17 puntos vs baseline de 24.98), Premium LH registró 40.0 puntos (+22.17 puntos vs baseline de 17.83), y Business SH/YW destacó con 29.41 puntos (+23.66 puntos vs baseline de 5.75). En contraste, Economy LH mostró un deterioro a 4.12 puntos (-2.9 puntos vs baseline de 7.02), mientras que Economy SH presentó comportamientos mixtos: IB con 17.59 puntos (-0.017 puntos vs baseline de 17.61) y YW con 32.54 puntos (+11.17 puntos vs baseline de 21.37). La causa principal identificada fueron 23 incidentes operacionales críticos en Short Haul, concentrados en problemas de puntualidad (69.6%-74% del total), incluyendo 10 retrasos, 6 cancelaciones y 1 desvío, que generaron respuestas diferenciadas según el nivel de servicio y marca.
+
+La ruta MVD-MAD fue específicamente identificada con disrupciones operativas (+50 minutos de reprogramación), mientras que los grupos de clientes más reactivos mostraron un gradiente claro: los segmentos Business y Premium de ambas marcas demostraron alta resiliencia ante disrupciones, especialmente YW que convirtió las crisis operativas en experiencias valoradas positivamente, mientras que Economy IB mostró mayor sensibilidad a los problemas de puntualidad. La gestión proactiva documentada ("Clientes informados") actuó como factor compensatorio clave que explicó por qué las mismas disrupciones operativas generaron mejoras significativas en segmentos premium.
+
+**ECONOMY SH: Reactividad Diferencial por Marca**
+La cabina Economy de Short Haul mostró comportamientos contrastantes durante el 8 de agosto, con IB registrando un NPS de 17.59 puntos (deterioro mínimo de -0.017 puntos vs baseline de 17.61) mientras YW alcanzó 32.54 puntos (mejora significativa de +11.17 puntos vs baseline de 21.37). Esta divergencia se explica por la respuesta diferencial ante 23 incidentes operacionales críticos, donde YW demostró mayor resiliencia y valoración de la gestión proactiva de crisis, mientras IB mostró sensibilidad tradicional a disrupciones de puntualidad. Los perfiles más reactivos fueron los clientes YW Economy que convirtieron la transparencia comunicativa en experiencias positivas.
+
+**BUSINESS SH: Resiliencia Premium Confirmada**
+El segmento Business de Short Haul experimentó mejoras notables, registrando un NPS general de 34.21 puntos (mejora de +8.56 puntos vs baseline de 25.65), con YW alcanzando niveles excepcionales de 29.41 puntos (+23.66 puntos vs baseline de 5.75). Esta evolución se explica por la alta resiliencia del segmento premium ante las mismas 23 disrupciones operativas que afectaron Economy, donde la gestión proactiva y comunicación transparente fueron especialmente valoradas. Los frequent flyers Business YW demostraron ser el perfil más resiliente, convirtiendo disrupciones en oportunidades de experiencia diferenciada.
+
+**ECONOMY LH: Datos Comprometidos por Error Técnico**
+La cabina Economy de Long Haul mostró aparente deterioro registrando un NPS de 4.12 puntos (-2.9 puntos vs baseline de 7.02), sin embargo, este resultado corresponde a un falso positivo generado por consulta de datos en fecha futura sin información operativa real. No se detectaron cambios genuinos en este segmento, requiriendo corrección técnica del sistema de monitoreo antes de análisis válidos.
+
+**BUSINESS LH: Anomalía Técnica sin Base Operativa**
+La cabina Business de Long Haul registró aparentemente un NPS de 48.15 puntos (+23.17 puntos vs baseline de 24.98), pero este resultado representa un artefacto técnico por datos de fecha futura sin sustento operativo real. No se identificaron drivers operativos genuinos que expliquen esta variación, manteniendo este segmento como estable hasta corrección del sistema de datos.
+
+**PREMIUM LH: Falso Positivo por Error Sistémico**
+El segmento Premium de Long Haul mostró aparente mejora con un NPS de 40.0 puntos (+22.17 puntos vs baseline de 17.83), pero esta variación corresponde a un falso positivo generado por consulta en fecha futura sin datos operativos reales. No se detectaron cambios significativos genuinos en este segmento premium, manteniendo niveles estables hasta resolución de problemas técnicos del sistema.
+🚨 Anomalías detectadas: daily_analysis
+
+📅 2025-08-09_to_2025-08-09:
+📈 SÍNTESIS EJECUTIVA:
+
+El análisis del 9 de agosto de 2025 reveló un patrón complejo de reactividad diferencial donde los problemas operacionales generaron impactos opuestos según el segmento. Long Haul experimentó una paradoja operativa donde 6 incidentes NCS produjeron una caída de 4 puntos en Economy (NPS de 2.98 vs baseline 7.02) mientras Business logró una mejora excepcional de 32.2 puntos (NPS 57.14 vs baseline 24.98) y Premium subió 19 puntos (NPS 36.84). En Short Haul, una crisis operacional severa con 24 incidentes reveló capacidades de gestión divergentes: Iberia Business experimentó un deterioro menor de 0.43 puntos (NPS 33.33 vs baseline 33.76) mientras Air Europa Business logró una mejora significativa de 11.9 puntos (NPS 17.65 vs baseline 5.75). Las causas identificadas incluyen una densidad operacional crítica con gestión diferencial en Long Haul que activó un "efecto amortiguador premium", y una crisis operacional en Short Haul que funcionó como test de capacidades de gestión entre compañías.
+
+Las rutas más afectadas se concentraron en el hub de Madrid, especialmente NRT-MAD que sufrió un desvío por ceniza volcánica con 3 horas 20 minutos de retraso, y MVD-MAD con cambios operacionales no programados. Los grupos más reactivos mostraron patrones contraintuitivos: mientras Economy Long Haul reaccionó negativamente como esperado ante disrupciones, los segmentos Business y Premium de ambos radios demostraron una capacidad excepcional de transformar problemas operacionales en experiencias positivas, sugiriendo protocolos de gestión de crisis superiores en cabinas premium y en Air Europa específicamente.
+
+**ECONOMY SH: Desempeño Estable**
+La cabina Economy de Short Haul mantuvo desempeño estable durante el 9 de agosto de 2025. No se detectaron cambios significativos en este segmento, manteniendo niveles consistentes de satisfacción a pesar de la crisis operacional que afectó otros segmentos del Short Haul.
+
+**BUSINESS SH: Crisis Operacional con Gestión Divergente**
+El segmento Business de Short Haul experimentó reacciones opuestas ante una crisis operacional severa, con 24 incidentes NCS registrados en un solo día. Iberia Business registró un NPS de 33.33 con un deterioro de 0.43 puntos respecto al baseline, mientras Air Europa Business alcanzó un NPS de 17.65 con una mejora excepcional de 11.9 puntos. Esta divergencia se explica principalmente por diferencias en la gestión de crisis entre compañías, siendo especialmente visible en rutas como NRT-MAD y MVD-MAD donde Air Europa logró transformar disrupciones severas (incluyendo desvíos y retrasos de más de 3 horas) en demostraciones de servicio excepcional.
+
+**ECONOMY LH: Impacto Negativo de Incidentes Operacionales**
+La cabina Economy de Long Haul experimentó un deterioro significativo, registrando un NPS de 2.98 con una caída de 4 puntos respecto al baseline de 7.02. La causa principal fueron 6 incidentes operacionales NCS que incluyeron retrasos y otras disrupciones, afectando especialmente las expectativas de un segmento más sensible a problemas operativos. Esta deterioro se reflejó especialmente en rutas intercontinentales donde los incidentes tuvieron mayor impacto en la experiencia del cliente Economy.
+
+**BUSINESS LH: Transformación Excepcional de Crisis en Oportunidad**
+La cabina Business de Long Haul logró una mejora excepcional, registrando un NPS de 57.14 con un incremento extraordinario de 32.2 puntos respecto al baseline de 24.98. Los drivers principales fueron una gestión proactiva excepcional de los 6 incidentes operacionales que, paradójicamente, se convirtieron en oportunidades para demostrar servicio superior, impactando especialmente las rutas intercontinentales donde la gestión de crisis premium superó ampliamente las expectativas de los viajeros de negocios.
+
+**PREMIUM LH: Efecto Amortiguador Moderado**
+El segmento Premium de Long Haul experimentó una mejora significativa, registrando un NPS de 36.84 con 19 puntos de mejora versus el período anterior. Las causas dominantes fueron una capacidad de amortiguación ante los problemas operacionales y una gestión de experiencia premium que logró minimizar el impacto negativo de los 6 incidentes NCS, demostrando que este segmento actúa como buffer entre Economy y Business en términos de reactividad a disrupciones operacionales.
+🚨 Anomalías detectadas: daily_analysis
+
+📅 2025-08-10_to_2025-08-10:
+📈 SÍNTESIS EJECUTIVA:
+
+El 10 de agosto de 2025 reveló una dualidad operativa extraordinaria en la red de Iberia, donde una crisis operativa masiva con 449 incidentes generó resultados NPS completamente opuestos según el radio de operación. El segmento Global experimentó una caída moderada de 1.6 puntos (de 16.46 a 14.87), pero esta cifra enmascara una realidad mucho más compleja: mientras Long Haul sufrió una crisis severa con caídas dramáticas de hasta 27.8 puntos en Premium (de 17.8 a -10.0), Short Haul Business logró su mejor desempeño histórico con una mejora excepcional de 24.3 puntos (de 25.7 a 50.0). La causa de esta divergencia radica en dos patrones de gestión completamente diferentes ante la misma crisis operativa: Long Haul experimentó fallos técnicos sistémicos en la flota Boeing 359 que generaron 8 cambios masivos de aeronave, cancelaciones críticas como el vuelo IB304 MEX-MAD y downgrades de producto que afectaron especialmente a Premium (-27.8 pts), Economy (-13.08 pts, de 7.02 a -6.06) y Business (-8.31 pts, de 24.98 a 16.67). En contraste, Short Haul implementó un protocolo de gestión de crisis excepcional que convirtió las mismas disrupciones en una demostración de competencia operativa, con comunicación proactiva via IBConecta, reubicación preventiva de pasajeros y transparencia sobre causas externas como la ceniza volcánica.
+
+Las rutas más críticas fueron MEX-MAD (cancelación total), MAD-GRU/GRU-MAD (downgrade de aeronave con 64 pasajeros reubicados) y NRT-MAD (desvío por ceniza volcánica con 49 conexiones perdidas pero gestionadas proactivamente en Short Haul). Los grupos más reactivos mostraron patrones diferenciados: en Long Haul, los pasajeros Premium fueron los más sensibles a los downgrades de producto y cambios de configuración, mientras que los viajeros con conexiones internacionales sufrieron especialmente por las disrupciones en cadena; en Short Haul Business, paradójicamente, los clientes valoraron extraordinariamente la gestión transparente y proactiva, especialmente en Iberia donde el NPS alcanzó 66.7 puntos (+32.9 vs baseline), demostrando que una gestión excepcional de crisis puede convertir problemas operativos en diferenciación competitiva.
+
+**ECONOMY SH: Desempeño Estable**
+La cabina Economy de Short Haul mantuvo desempeño estable durante el 10 de agosto de 2025. No se detectaron cambios significativos a nivel de cabina independiente, manteniendo niveles consistentes de satisfacción dentro del contexto operativo general.
+
+**BUSINESS SH: Excelencia en Gestión de Crisis**
+El segmento Business de Short Haul experimentó una mejora excepcional de 24.3 puntos, alcanzando un NPS de 50.0 durante el 10 de agosto. Esta evolución extraordinaria se explica por la implementación de un protocolo de gestión de crisis que convirtió 31 incidentes operacionales en una demostración de competencia operativa, siendo especialmente visible en la operación de Iberia donde el NPS alcanzó 66.7 puntos (+32.9 vs baseline) y entre perfiles de viajeros con conexiones complejas que valoraron la gestión proactiva de 49 conexiones perdidas y la comunicación transparente via IBConecta.
+
+**ECONOMY LH: Crisis por Fallos Técnicos**
+La cabina Economy de Long Haul experimentó un deterioro severo de 13.08 puntos, cayendo de 7.02 a -6.06 durante el 10 de agosto. La causa principal fue la crisis técnica sistémica de la flota Boeing 359 que generó 8 cambios masivos de aeronave, cancelaciones críticas y sobreventa masiva, complementada por eventos externos como ceniza volcánica. Este deterioro se reflejó especialmente en rutas como MEX-MAD (cancelación total), MAD-GRU (64 pasajeros reubicados) y NRT-MAD (desvío con +3h20min), mientras que los perfiles más reactivos incluyen viajeros con conexiones internacionales y pasajeros en rutas intercontinentales de alto valor.
+
+**BUSINESS LH: Impacto Moderado por Crisis Técnica**
+La cabina Business de Long Haul registró una caída de 8.31 puntos, de 24.98 a 16.67 durante el 10 de agosto. Los drivers principales fueron los fallos técnicos simultáneos de la flota B359 que causaron downgrades de producto, cancelaciones y retrasos extremos, impactando especialmente las rutas MEX-MAD, MAD-GRU y NRT-MAD, y perfiles de ejecutivos en corredores intercontinentales que mostraron mayor tolerancia relativa comparado con otras cabinas.
+
+**PREMIUM LH: Máximo Impacto por Degradación de Producto**
+El segmento Premium de Long Haul sufrió el mayor deterioro con una caída dramática de 27.8 puntos, de 17.8 a -10.0 durante el 10 de agosto. Las causas dominantes fueron los downgrades masivos de producto por cambios forzados de Boeing 359 a Airbus 330, cancelaciones totales y gestión de sobreventa, especialmente evidentes en rutas intercontinentales críticas como MEX-MAD, MAD-GRU y NRT-MAD, y entre perfiles Premium de ultra-larga distancia con altas expectativas de configuración y servicio.
+🚨 Anomalías detectadas: daily_analysis
+
+📅 2025-08-11_to_2025-08-11:
+# 🎯 **SÍNTESIS EJECUTIVA FINAL - ANÁLISIS NPS**
+
+## 📈 SÍNTESIS EJECUTIVA:
+
+El análisis del 11 de agosto de 2025 revela un patrón paradójico de respuestas NPS ante una crisis meteorológica externa que afectó significativamente las operaciones globales. La inundación del aeropuerto de México (MEX) generó 67 incidentes operacionales totales, pero sorprendentemente resultó en mejoras netas de satisfacción en la mayoría de segmentos Long Haul, mientras que Short Haul mostró respuestas mixtas. Los segmentos Economy LH experimentaron una mejora excepcional de +11.27 puntos (pasando de 7.02 a 18.29), Business LH registró la mayor subida con +22.64 puntos (de 25.0 a 47.6), mientras que Premium LH sufrió un deterioro severo de -17.8 puntos (de 17.8 a 0.0). En Short Haul, Business IB logró una mejora notable de +9.57 puntos (de 33.8 a 43.3), contrastando con Business YW que cayó -5.75 puntos (de 5.75 a 0.0) y Economy YW que disminuyó -2.78 puntos (de 21.37 a 18.59).
+
+Las rutas más impactadas se concentraron en el corredor España-México, particularmente MEX-MAD con 2 incidentes críticos y MAD-MEX con el desvío del vuelo IB311 a Cancún, afectando 149 conexiones perdidas y requiriendo 22 cambios de equipo. Los grupos de clientes más reactivos fueron los pasajeros Premium Long Haul, quienes mostraron la mayor sensibilidad negativa a las disrupciones operativas, mientras que paradójicamente los segmentos Economy y Business Long Haul demostraron una reactividad positiva excepcional, sugiriendo una gestión de crisis diferencial exitosa que superó las expectativas de los clientes durante el evento meteorológico extremo.
+
+**ECONOMY SH: Impacto Operativo Moderado**
+La cabina Economy de SH experimentó un deterioro controlado durante el 11 de agosto, registrando un NPS de 18.59 con una disminución de -2.78 puntos respecto al baseline. La causa principal fue la crisis meteorológica en México que generó 27 incidentes operacionales, incluyendo 6 cancelaciones y 14 retrasos que afectaron principalmente las conexiones transatlánticas. Este deterioro se reflejó especialmente en rutas como MEX-MAD y MAD-MEX, donde las 149 conexiones perdidas y los 22 cambios de equipo impactaron directamente la experiencia de puntualidad y aircraft interior, mientras que los perfiles más reactivos incluyeron pasajeros en conexión y viajeros sensibles a cambios operativos.
+
+**BUSINESS SH: Gestión Diferencial por Compañía**
+El segmento Business de SH mostró respuestas completamente opuestas según la compañía operadora, con IB registrando un NPS de 43.3 (mejora de +9.57 puntos) mientras YW alcanzó 0.0 (deterioro de -5.75 puntos) ante la misma crisis operacional. Esta divergencia extrema se explica principalmente por diferencias en protocolos de gestión de crisis y comunicación con clientes durante los 23-27 incidentes documentados, siendo especialmente visible en rutas como el corredor Madrid-México donde IB logró transformar las disrupciones en oportunidades de demostración de excelencia operativa, mientras YW experimentó el impacto negativo esperado entre perfiles de viajeros corporativos altamente sensibles a pérdidas de conexión.
+
+**ECONOMY LH: Transformación de Crisis en Oportunidad**
+La cabina Economy de LH logró una mejora excepcional durante el 11 de agosto, registrando un NPS de 18.29 con una subida notable de +11.27 puntos respecto al baseline de 7.02. La causa principal fue una gestión de crisis ejemplar que superó las expectativas de los clientes durante la inundación del aeropuerto México, a pesar de enfrentar 14 incidentes operacionales incluyendo el desvío crítico del vuelo IB311 a Cancún. Esta mejora paradójica se reflejó especialmente en rutas transatlánticas donde la comunicación proactiva y las compensaciones efectivas durante las 149 conexiones perdidas generaron satisfacción superior a la esperada, mientras que los perfiles más beneficiados incluyeron pasajeros que valoraron la transparencia y gestión profesional durante situaciones adversas.
+
+**BUSINESS LH: Excelencia en Gestión de Crisis Premium**
+La cabina Business de LH experimentó la mayor mejora de satisfacción, registrando un NPS de 47.6 con un incremento excepcional de +22.64 puntos vs el período anterior (25.0). Los drivers principales fueron protocolos de crisis específicos para segmento premium que transformaron disrupciones inevitables en demostraciones de servicio superior, impactando especialmente las rutas Madrid-México donde las reubicaciones exitosas y compensaciones proactivas durante los 14 incidentes operacionales generaron lealtad incremental, siendo los perfiles más reactivos los viajeros de negocios que valoraron la gestión profesional y comunicación diferenciada durante el evento meteorológico extremo.
+
+**PREMIUM LH: Vulnerabilidad Específica del Segmento Ultra-Premium**
+El segmento Premium de LH sufrió el mayor deterioro durante el 11 de agosto, registrando un NPS de 0.0 con una caída severa de -17.8 puntos vs la semana anterior (17.8). Las causas dominantes fueron las altas expectativas del segmento ultra-premium que amplificaron el impacto negativo de los 6 incidentes operacionales, especialmente evidentes en rutas del corredor España-México donde los cambios de equipo y pérdidas de conexión afectaron desproporcionadamente la experiencia planificada, siendo los perfiles más reactivos los pasajeros premium con itinerarios complejos y baja tolerancia a disrupciones operativas durante eventos de fuerza mayor.
+🚨 Anomalías detectadas: daily_analysis
+
+📅 2025-08-12_to_2025-08-12:
+# 📈 SÍNTESIS EJECUTIVA
+
+El 12 de agosto de 2025 marcó un día crítico para la satisfacción del cliente de Iberia, con una crisis operacional masiva centrada en el hub de Madrid que generó deterioros significativos del NPS a través de toda la red. El impacto global fue severo, con el NPS cayendo de 16.46 a 11.37 puntos (-5.1 puntos), resultado directo de 567 incidentes operacionales concentrados en 24 horas que incluyeron 178 retrasos, 38 cancelaciones, 83 conexiones perdidas y 47 cambios de equipo. Esta tormenta perfecta operacional se desencadenó por la convergencia de factores externos como ceniza volcánica que desvió el vuelo NRT-MAD (+3h 20min), fallas técnicas que forzaron la cancelación del IB125 MAD-LIM, y un efecto dominó iniciado por el retraso del IB418 BCN-MAD que generó 41 conexiones perdidas adicionales. La crisis afectó tanto operaciones Short Haul (NPS de 19.64 a 13.41, -6.23 puntos) como Long Haul (NPS de 9.55 a 6.63, -2.91 puntos), evidenciando la vulnerabilidad sistémica del modelo hub-and-spoke cuando el hub central colapsa operativamente.
+
+Las rutas más severamente impactadas fueron aquellas que convergían en Madrid, especialmente BCN-MAD (epicentro del efecto cascada), GIG-MAD (64 conexiones perdidas por reprogramación), MAD-LIM (cancelación técnica completa), y NRT-MAD (desvío prolongado por ceniza volcánica). Los grupos de clientes más reactivos fueron claramente los segmentos premium, con Business Short Haul experimentando los mayores deterioros, particularmente en YW donde el NPS colapsó de 5.75 a -71.43 puntos (-77.2 puntos), mientras que los pasajeros en conexión y viajeros intercontinentales mostraron la mayor sensibilidad a las disrupciones operativas debido a sus itinerarios complejos y expectativas elevadas de puntualidad y confiabilidad.
+
+**ECONOMY SH: Impacto Diferencial por Compañía**
+La cabina Economy de Short Haul mostró reacciones contrastantes entre compañías durante la crisis del 12 de agosto, con IB registrando un deterioro severo (NPS de 17.61 a 10.90, -6.70 puntos) mientras YW mantuvo mayor resistencia (NPS de 21.37 a 20.75, -0.62 puntos). La causa principal fue la sobrecarga operacional masiva con 29 incidentes que incluyeron cambios de equipo generalizados y conexiones perdidas, pero IB demostró mayor vulnerabilidad a estas disrupciones, posiblemente por diferencias en la gestión de crisis o expectativas específicas de sus clientes. Esta divergencia se reflejó especialmente en rutas críticas como BCN-MAD y LCG-MAD, donde los pasajeros IB mostraron mayor reactividad a cancelaciones y cambios de último momento.
+
+**BUSINESS SH: Vulnerabilidad Extrema en YW**
+El segmento Business de Short Haul experimentó el mayor contraste entre compañías, con IB registrando una degradación severa pero controlada (NPS de 33.8 a 17.4, -16.4 puntos) mientras YW sufrió un colapso catastrófico (NPS de 5.75 a -71.43, -77.2 puntos). Esta evolución se explica principalmente por la misma base de 29 incidentes operacionales, pero YW mostró una vulnerabilidad sistémica extrema en el segmento premium que no se observó en IB, siendo especialmente visible en rutas como GIG-MAD y MAD-LIM donde las expectativas de servicio Business fueron completamente incumplidas, y entre perfiles de viajeros de negocios con conexiones críticas que no toleraron las 213 conexiones afectadas y los cambios masivos de equipo.
+
+**ECONOMY LH: Segmento Estable**
+La cabina Economy de Long Haul mantuvo desempeño estable a nivel semanal durante este período, sin registrar nodos específicos en el análisis jerárquico, lo que sugiere que este segmento no experimentó cambios significativos detectables y mantuvo niveles consistentes de satisfacción durante la crisis operacional.
+
+**BUSINESS LH: Colapso Total del Servicio Premium**
+La cabina Business de Long Haul experimentó un colapso total de satisfacción (NPS de 25.0 a 0.0, -25.0 puntos) durante la crisis del 12 de agosto. Los drivers principales fueron los 47 cambios de equipo que degradaron masivamente la experiencia de cabina premium y las 83 conexiones perdidas que destruyeron la percepción de confiabilidad, impactando especialmente las rutas intercontinentales como GIG-MAD, NRT-MAD y MAD-LIM donde las expectativas de servicio Business son máximas, y entre perfiles de viajeros ejecutivos internacionales que mostraron cero tolerancia a las disrupciones operativas en sus itinerarios de alto valor.
+
+**PREMIUM LH: Resistencia Relativa en Crisis**
+El segmento Premium de Long Haul mostró mayor resistencia durante la crisis operacional, registrando un NPS de 17.83 a 12.5 (-5.33 puntos de deterioro) versus el colapso observado en Business. Las causas dominantes fueron los mismos 47 cambios de equipo y disrupciones de conexiones, pero este segmento demostró mayor capacidad de absorción ante las crisis operativas, especialmente evidentes en rutas intercontinentales donde las expectativas, aunque altas, fueron más tolerantes a las circunstancias excepcionales, y entre perfiles de clientes premium que mantuvieron cierta lealtad pese a las disrupciones masivas del hub Madrid.
+🚨 Anomalías detectadas: daily_analysis
+
+📅 2025-08-13_to_2025-08-13:
+📈 SÍNTESIS EJECUTIVA:
+
+El 13 de agosto de 2025 representó un día crítico para la operación global, con una crisis sistémica de gestión de flota que impactó severamente el NPS en prácticamente todos los segmentos. El NPS global experimentó una caída de 7.4 puntos, descendiendo de 16.5 a 9.1 puntos, causada por una disrupción operativa masiva que generó 531 incidentes en un solo día. Esta crisis se originó por problemas de rotación de aeronaves, específicamente un AOG (Aircraft on Ground) en México que desencadenó un efecto dominó con 25 cambios de equipo, 58 cancelaciones, 114 retrasos y 115 conexiones perdidas. Los segmentos más afectados fueron Business Long Haul con una caída devastadora de 24.98 puntos (de 24.98 a 0.0) y Business Short Haul que registró una caída de 19.8 puntos (de 25.65 a 5.88), mientras que los segmentos Economy mostraron mayor resistencia con caídas de 6.27 puntos en Long Haul (de 7.02 a 0.75) y 6.18 puntos en Short Haul (de 19.00 a 12.83). Notablemente, el segmento Business Short Haul de YW logró convertir la crisis en una oportunidad, registrando una mejora excepcional de 16.47 puntos (de 5.75 a 22.22) gracias a una gestión proactiva de crisis ejemplar.
+
+Las rutas más impactadas fueron los corredores intercontinentales con epicentro en Madrid, especialmente MIA-MAD que experimentó el incidente más severo con el vuelo IB334 reprogramado 4 horas y 20 minutos por rotación de aeronave, afectando a 50 pasajeros que perdieron conexiones. Las rutas UIO-MAD y MAD-EZE también registraron incidentes significativos, confirmando un patrón de vulnerabilidad en las conexiones América-Europa. Los grupos de clientes más reactivos fueron consistentemente los segmentos Business y Premium, que mostraron amplificaciones de impacto entre 3x y 4x superiores a Economy ante la misma disrupción operativa, evidenciando que las expectativas elevadas de servicio generan mayor sensibilidad a las fallas operacionales, especialmente en rutas intercontinentales de largo radio.
+
+**ECONOMY SH: Resistencia Operativa con Impacto Diferencial por Compañía**
+
+La cabina Economy de Short Haul experimentó una caída moderada pero significativa, registrando un NPS de 12.83 (13 de agosto) con una disminución de 6.18 puntos respecto al baseline. La causa principal fue la crisis sistémica de rotación de aeronaves que generó 41 incidentes operacionales, incluyendo 8 cancelaciones y 11 retrasos, siendo el incidente crítico IB334 MIA-MAD con 4 horas 20 minutos de retraso el evento más disruptivo. Esta caída se manifestó de manera diferencial entre compañías, con IB registrando una caída de 4.6 puntos (de 17.6 a 13.0) y YW experimentando un impacto más severo de 9.0 puntos (de 21.37 a 12.40), sugiriendo protocolos de gestión de crisis distintos. El deterioro se reflejó especialmente en rutas intercontinentales como MIA-MAD, UIO-MAD y MAD-EZE, mientras que el segmento Economy mostró mayor resistencia comparado con las cabinas premium, confirmando menor reactividad ante disrupciones operativas.
+
+**BUSINESS SH: Divergencia Extrema en Gestión de Crisis**
+
+El segmento Business de Short Haul mostró la mayor divergencia operativa del día, registrando patrones completamente opuestos entre compañías ante la misma crisis sistémica. Mientras IB experimentó un colapso severo con una caída de 33.8 puntos (de 33.8 a 0.0), YW logró una mejora excepcional de 16.47 puntos (de 5.75 a 22.22), evidenciando capacidades de gestión de crisis radicalmente diferentes. Esta evolución divergente se explica principalmente por los mismos 41 incidentes operacionales que afectaron ambas compañías, pero con protocolos de recuperación y comunicación proactiva diferenciados, siendo especialmente visible en las rutas MIA-MAD, UIO-MAD y MAD-EZE donde YW convirtió la disrupción en una oportunidad de fidelización mientras IB experimentó el impacto negativo completo de la crisis operativa.
+
+**ECONOMY LH: Impacto Moderado con Vulnerabilidad Intercontinental**
+
+La cabina Economy de Long Haul experimentó una caída controlada, registrando un NPS de 0.75 (13 de agosto) con una disminución de 6.27 puntos respecto al baseline de 7.02. La causa principal fue la crisis operativa específica de 17 incidentes concentrados en rutas intercontinentales, destacando el AOG en México que forzó la rotación del vuelo IB334 MIA-MAD con 4 horas 20 minutos de retraso, generando 50 conexiones perdidas solo en este vuelo. Esta caída se reflejó especialmente en rutas como MIA-MAD y MAD-EZE, confirmando la mayor vulnerabilidad de las conexiones intercontinentales a disrupciones de flota, mientras que los pasajeros Economy Long Haul mostraron sensibilidad moderada pero significativa a retrasos extremos y cambios de aeronave no planificados.
+
+**BUSINESS LH: Máxima Reactividad a Crisis Operativa**
+
+La cabina Business de Long Haul registró el impacto más severo proporcional, experimentando una caída devastadora de 24.98 puntos hasta llegar a 0.0 puntos de NPS (13 de agosto), representando una pérdida total de satisfacción. Los drivers principales fueron los mismos 17 incidentes operacionales que afectaron el segmento Long Haul, especialmente el incidente crítico IB334 MIA-MAD y los problemas de rotación que generaron cambios de aeronave y conexiones perdidas, impactando especialmente las rutas MIA-MAD y MAD-EZE donde los pasajeros Business mostraron máxima sensibilidad a disrupciones de puntualidad y consistencia de producto. Este segmento evidenció una amplificación de 4x superior al impacto base de Economy, confirmando que las expectativas premium generan reactividad extrema ante fallas operacionales en rutas intercontinentales.
+
+**PREMIUM LH: Reactividad Elevada con Patrón Intermedio**
+
+El segmento Premium de Long Haul experimentó una caída significativa, registrando un NPS de 0.0 con 17.8 puntos de deterioro vs el período anterior. Las causas dominantes fueron la crisis operativa de rotación de aeronaves, el AOG en México y específicamente el incidente IB334 MIA-MAD con 4 horas 20 minutos de retraso, especialmente evidentes en rutas MIA-MAD y MAD-EZE donde los pasajeros Premium mostraron una reactividad intermedia entre Economy (baseline) y Business (máxima), con una amplificación de 2.8x que confirma el patrón jerárquico de sensibilidad según expectativas de clase de servicio en rutas intercontinentales.
+🚨 Anomalías detectadas: daily_analysis
+
+📅 2025-08-14_to_2025-08-14:
+# 🎯 **SÍNTESIS EJECUTIVA FINAL - ANÁLISIS NPS**
+
+📈 **SÍNTESIS EJECUTIVA:**
+
+El 14 de agosto de 2025 registró una caída significativa del NPS global, pasando de 16.5 a 8.9 puntos (-7.6 puntos), resultado de una tormenta perfecta operacional que impactó diferenciadamente los segmentos de la compañía. Short Haul experimentó un deterioro moderado con un NPS de 16.16 frente a su baseline de 19.64 (-3.48 puntos), causado por 52 incidentes operacionales concentrados por altas temperaturas extremas en Madrid que generaron 16 cancelaciones y 24 retrasos masivos. Long Haul sufrió un impacto más severo, cayendo a -8.9 puntos desde un baseline de 9.5 (-18.5 puntos), debido a una crisis técnica con aeronaves AOG en México que requirió 15 incidentes críticos incluyendo vuelos posicionales de emergencia y escalas técnicas no planificadas en Santo Domingo. La situación se amplificó por cancelaciones preventivas relacionadas con la huelga de handling programada en Bordeaux para el 16 de agosto, que actuó como catalizador elevando el total de incidentes operacionales a 797 en un solo día.
+
+Las rutas más afectadas se concentraron en los corredores Madrid-Europa para Short Haul, donde el hub madrileño colapsó por las condiciones meteorológicas extremas, y el corredor México-Caribe para Long Haul, específicamente documentado en vuelos como IB1377 que requirió regreso técnico y cambio de aeronave. Los grupos de clientes más reactivos mostraron patrones diferenciados: en Short Haul, Business fue cinco veces más sensible que Economy (-12.8 vs -2.54 puntos), mientras que en Long Haul se registró una paradoja excepcional donde Economy colapsó severamente (-29.4 puntos) pero Premium logró convertir la crisis en una experiencia excepcional (+43.7 puntos), evidenciando capacidades de gestión de crisis radicalmente diferentes por clase de servicio.
+
+**ECONOMY SH: Resistencia Relativa ante Crisis Meteorológica**
+La cabina Economy de Short Haul mostró resistencia relativa durante la crisis del 14 de agosto, registrando un NPS de 16.46 con una caída de 2.54 puntos respecto a su baseline de 19.00. La causa principal fue el colapso operativo del hub Madrid por altas temperaturas extremas que generó 52 incidentes críticos, siendo especialmente impactada por las 16 cancelaciones y 24 retrasos que deterioraron directamente el touchpoint de puntualidad crítico para vuelos cortos. Esta degradación se reflejó especialmente en rutas europeas operadas desde Madrid, donde el segmento Economy/YW registró una caída más pronunciada de 7.6 puntos, mientras que los perfiles más reactivos incluyeron pasajeros con conexiones y viajeros sensibles a cancelaciones masivas.
+
+**BUSINESS SH: Reactividad Extrema con Gestión Diferencial**
+El segmento Business de Short Haul experimentó alta volatilidad durante la crisis, registrando un NPS agregado de 12.9 con una caída de 12.8 puntos vs su baseline de 25.7. Esta evolución se explica principalmente por una reactividad cinco veces superior a Economy ante los mismos 52 incidentes operacionales, siendo especialmente visible una divergencia dramática por compañía: IB Business logró una mejora excepcional de 11.2 puntos (NPS: 45.0) mediante gestión superior de crisis, mientras YW Business colapsó severamente con una caída de 51.21 puntos (NPS: -45.45), evidenciando protocolos de gestión de disrupciones radicalmente diferentes entre compañías para el mismo segmento premium.
+
+**ECONOMY LH: Colapso Severo por Crisis Técnica**
+La cabina Economy de Long Haul sufrió un deterioro severo durante la crisis técnica, registrando un NPS de -22.4 con una caída de 29.4 puntos respecto a su baseline de 7.0. La causa principal fue la crisis de aeronaves AOG en México que requirió soluciones disruptivas excepcionales incluyendo vuelos posicionales y escalas técnicas no planificadas en Santo Domingo, impactando múltiples touchpoints simultáneamente: Aircraft Interior por cambios de aeronave forzosos, Baggage Handling por escalas no programadas, y Arrivals Experience por disrupciones en destino. Esta degradación se reflejó especialmente en rutas del corredor México-Caribe donde las expectativas de consistencia intercontinental fueron severamente comprometidas, mientras que los perfiles más reactivos incluyeron pasajeros con conexiones internacionales y viajeros con menor tolerancia a cambios operativos no planificados.
+
+**BUSINESS LH: Estabilidad Semanal Mantenida**
+La cabina Business de Long Haul mantuvo desempeño estable durante este período, sin registrar datos específicos que indiquen variaciones significativas en el análisis de día único. No se detectaron cambios significativos, manteniendo niveles consistentes de satisfacción a nivel semanal.
+
+**PREMIUM LH: Conversión Excepcional de Crisis en Oportunidad**
+El segmento Premium de Long Haul logró una transformación excepcional durante la crisis técnica, registrando un NPS de 61.54 con una mejora extraordinaria de 43.7 puntos vs su baseline de 17.83. Las causas dominantes fueron protocolos de gestión de crisis que convirtieron las disrupciones operacionales (aeronaves AOG, vuelos posicionales, escalas técnicas) en oportunidades de diferenciación positiva, especialmente evidentes en el corredor México-Caribe donde la comunicación proactiva, compensaciones efectivas y servicios alternativos de alta calidad durante las 15 incidencias críticas generaron una experiencia que superó ampliamente las expectativas, demostrando que la excelencia premium se mide por la capacidad de convertir problemas en ventajas competitivas.
+🚨 Anomalías detectadas: daily_analysis
+
+TAREA:
+1. Copia la síntesis ejecutiva del interpreter semanal TAL COMO ESTÁ
+2. Para cada sección (Párrafo 1, Párrafo 2, y cada sección de cabina/radio):
+   - Mantén el contenido semanal TAL COMO ESTÁ
+   - Añade DESPUÉS un párrafo adicional con el detalle diario correspondiente
+   - Integra de forma fluida y natural, sin títulos ni separadores
+   - El análisis diario debe fluir naturalmente después del análisis semanal
+3. Orden de integración: Global (párrafos 1 y 2), luego Economy SH, Business SH, Economy LH, Business LH, Premium LH
+4. Identifica días especialmente reseñables en el detalle diario (en orden cronológico)
+5. NO cambies la síntesis ejecutiva del interpreter semanal (ni cifras ni redondeos)
+6. NO añadas recomendaciones adicionales
+7. Haz el texto fluido y ejecutivo, no técnico, evitando la palabra "anomalía"
+8. Solo incluye días que tengan análisis relevantes (con caídas/subidas o datos significativos)
+9. Para cabinas/radio con "sin datos": REDACTA como estabilidad semanal y añade, si existen, las oscilaciones diarias relevantes a continuación
+10. **CRÍTICO**: Si hay datos en "ANÁLISIS DIARIO SINGLE", DEBES usarlos. NO digas que "no están disponibles" si están presentes en el input.
+11. **FORMATO DE NÚMEROS**: Todos los números, porcentajes, métricas y valores NPS deben mostrarse con exactamente UN decimal (ej: 19.8, -4.4, 93.5%)
