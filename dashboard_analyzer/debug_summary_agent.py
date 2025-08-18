@@ -95,18 +95,21 @@ async def main():
                     "anomalies": ["daily_analysis"]  # Placeholder for anomalies
                 }
                 
-                # Classify reports based on date format (more reliable than study_mode)
-                if "_to_" in date:
-                    # This is a weekly/comparative report (date range)
+                # Classify reports based on date range (more reliable than date string format)
+                start_date = metadata.get("start_date", "")
+                end_date = metadata.get("end_date", "")
+                
+                if start_date and end_date and start_date != end_date:
+                    # This is a weekly/comparative report (different start and end dates)
                     if weekly_report is None:
                         weekly_report = final_interpretation
-                        print(f"📊 Found weekly report: {date} (study_mode: {study_mode})")
+                        print(f"📊 Found weekly report: {date} (study_mode: {study_mode}) [{start_date} to {end_date}]")
                     else:
                         print(f"⚠️ Multiple weekly reports found, using first one: {date}")
                 else:
-                    # This is a daily/single report (single date)
+                    # This is a daily/single report (same start and end date)
                     daily_reports.append(report_for_agent)
-                    print(f"📅 Found daily report: {date} (study_mode: {study_mode})")
+                    print(f"📅 Found daily report: {date} (study_mode: {study_mode}) [{start_date} to {end_date}]")
 
             # Verify we have the required reports
             if not weekly_report:

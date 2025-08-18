@@ -3068,7 +3068,7 @@ async def main():
                 date_parameter=date_parameter,
                 segment=args.segment,
                 explanation_mode=args.explanation_mode,
-                baseline_periods=args.baseline_periods,
+                daily_baseline_periods=args.baseline_periods,
                 causal_filter=args.causal_filter_comparison,
                 comparison_start_date=args.comparison_start_date,
                 comparison_end_date=args.comparison_end_date,

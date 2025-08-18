@@ -780,7 +780,24 @@ class CausalExplanationAgent:
                     cleaned_data[col] = cleaned_data[col].replace('', pd.NA)
                     cleaned_data[col] = pd.to_numeric(cleaned_data[col], errors='coerce')
 
-            # Convert 'Date' column to datetime objects for filtering
+            # Convert date column to datetime objects for filtering
+            # Handle different possible date column names
+            date_col = None
+            if 'Date' in cleaned_data.columns:
+                date_col = 'Date'
+            elif 'Date_Master' in cleaned_data.columns:
+                date_col = 'Date_Master'
+            elif 'Date_Master[Date' in cleaned_data.columns:
+                date_col = 'Date_Master[Date'
+            
+            if date_col is None:
+                return f"❌ No date column found in operative data. Available columns: {list(cleaned_data.columns)}"
+            
+            # Standardize to 'Date' column
+            if date_col != 'Date':
+                cleaned_data['Date'] = cleaned_data[date_col]
+            
+            # Convert to datetime
             cleaned_data['Date'] = pd.to_datetime(cleaned_data['Date'])
             
             # Get target date data
@@ -4235,7 +4252,7 @@ class CausalExplanationAgent:
                     tools=[],  # No tools for reflection
                     structured_output=None  # No structured output for reflections
                 ),
-                timeout=120.0  # 2 minute timeout for reflections
+                timeout=300.0  # 5 minute timeout for reflections
             )
             
             self.logger.debug(f"✅ Reflection response received for {tool_name}")
