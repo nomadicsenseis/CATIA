@@ -3038,14 +3038,14 @@ class CausalExplanationAgent:
                         "pax": int(route[pax_col]) if pax_col and pd.notna(route[pax_col]) else 0,
                         "source": "explanatory_drivers"
                     }
-                
-                routes_analysis.append(route_info)
-            
-                # Add to analysis summary
-                driver_score_str = f"{route_info['driver_score']}" if route_info['driver_score'] is not None else "N/A"
-                nps_str = f", NPS {route_info['nps']}" if route_info['nps'] is not None else ""
-                nps_diff_str = f", vs L7d: {route_info['nps_diff']:+.1f}" if route_info['nps_diff'] is not None else ""
-                analysis_summary += f"     • {route_info['route']}: {touchpoint} {driver_score_str}{nps_str}{nps_diff_str}, Pax {route_info['pax']}\n"
+                    
+                    routes_analysis.append(route_info)
+                    
+                    # Add to analysis summary
+                    driver_score_str = f"{route_info['driver_score']}" if route_info['driver_score'] is not None else "N/A"
+                    nps_str = f", NPS {route_info['nps']}" if route_info['nps'] is not None else ""
+                    nps_diff_str = f", vs L7d: {route_info['nps_diff']:+.1f}" if route_info['nps_diff'] is not None else ""
+                    analysis_summary += f"     • {route_info['route']}: {touchpoint} {driver_score_str}{nps_str}{nps_diff_str}, Pax {route_info['pax']}\n"
             
             return {
                 "routes": routes_analysis,
@@ -3073,7 +3073,8 @@ class CausalExplanationAgent:
             if df.empty:
                 return {"routes": [], "analysis": "❌ No general routes data found", "source": "explanatory_drivers"}
             
-            df.columns = [col.strip('[]') for col in df.columns]
+            # Clean column names safely
+            df = self._safe_clean_columns(df, method="strip")
             route_col = self._find_column(df, ['route'])
             nps_col = self._find_column(df, ['nps'])
             pax_col = self._find_column(df, ['pax', 'n (route)'])
@@ -3147,8 +3148,8 @@ class CausalExplanationAgent:
             if df_ncs.empty:
                 return {"routes": [], "analysis": f"❌ No data found for NCS routes: {', '.join(all_ncs_routes)}", "source": "ncs"}
             
-            # Clean column names
-            df_ncs.columns = [col.replace('[', '').replace(']', '') for col in df_ncs.columns]
+            # Clean column names safely
+            df_ncs = self._safe_clean_columns(df_ncs, method="replace")
             
             # Filter to only include the NCS routes
             route_col = self._find_column(df_ncs, ['route', 'Route', 'ROUTE'])
@@ -3527,7 +3528,7 @@ class CausalExplanationAgent:
                         continue
                     
                     # Clean column names (remove brackets) - same as routes_tool
-                    df.columns = [col.replace('[', '').replace(']', '') for col in df.columns]
+                    df = self._safe_clean_columns(df, method="replace")
                     
                     # Filter by minimum surveys
                     if 'Pax' in df.columns:
@@ -3742,6 +3743,33 @@ class CausalExplanationAgent:
             self.logger.error(f"💥 Error in customer profile NPS impact analysis: {str(e)}")
             return f"Error in customer profile NPS impact analysis: {str(e)}"
     
+    def _safe_clean_columns(self, df: pd.DataFrame, method: str = "strip") -> pd.DataFrame:
+        """
+        Safely clean column names by removing brackets, handling None columns
+        
+        Args:
+            df: DataFrame to clean
+            method: "strip" for .strip('[]') or "replace" for .replace('[', '').replace(']', '')
+        """
+        if df.empty:
+            return df
+            
+        cleaned_columns = []
+        for col in df.columns:
+            if col is not None and isinstance(col, str):
+                if method == "strip":
+                    cleaned_columns.append(col.strip('[]'))
+                elif method == "replace":
+                    cleaned_columns.append(col.replace('[', '').replace(']', ''))
+                else:
+                    cleaned_columns.append(col)
+            else:
+                # Log problematic columns and use a safe default
+                self.logger.warning(f"⚠️ Found None/invalid column name: {col}, using default")
+                cleaned_columns.append(f"Column_{len(cleaned_columns)}")
+        df.columns = cleaned_columns
+        return df
+
     def _create_temporal_ncs_comparison(self, current_data: pd.DataFrame, comparison_data: pd.DataFrame, 
                                       node_path: str, current_start: str, current_end: str, 
                                       comparison_start: str, comparison_end: str) -> dict:

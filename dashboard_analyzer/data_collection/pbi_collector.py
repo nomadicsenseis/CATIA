@@ -585,8 +585,8 @@ class PBIDataCollector:
             query = self._get_flexible_nps_query(aggregation_days, cabins, companies, hauls, analysis_date)
             df = await self._execute_query_async(query)
             if not df.empty:
-                # Clean column names
-                df.columns = [col.strip('[]') for col in df.columns]
+                # Clean column names safely
+                df = self._safe_clean_columns(df)
                 df.to_csv(node_dir / f'flexible_NPS_{aggregation_days}d.csv', index=False)
                 results['flexible_NPS'] = True
                 print(f"  ✓ flexible_NPS_{aggregation_days}d.csv saved ({len(df)} periods)")
@@ -610,8 +610,8 @@ class PBIDataCollector:
             
             df = await self._execute_query_async(query)
             if not df.empty:
-                # Clean column names  
-                df.columns = [col.strip('[]') for col in df.columns]
+                # Clean column names safely
+                df = self._safe_clean_columns(df)
                 df.to_csv(node_dir / filename, index=False)
                 
                 results['flexible_operative'] = True
@@ -627,6 +627,24 @@ class PBIDataCollector:
             print(f"  ✗ flexible_operative_{aggregation_days}d.csv - error: {str(e)}")
         
         return results
+
+    def _safe_clean_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Safely clean column names by removing brackets, handling None columns
+        """
+        if df.empty:
+            return df
+            
+        cleaned_columns = []
+        for col in df.columns:
+            if col is not None and isinstance(col, str):
+                cleaned_columns.append(col.strip('[]'))
+            else:
+                # Log problematic columns and use a safe default
+                print(f"         ⚠️ Found None/invalid column name: {col}, using default")
+                cleaned_columns.append(f"Column_{len(cleaned_columns)}")
+        df.columns = cleaned_columns
+        return df
 
     def _parse_node_path(self, node_path: str) -> Tuple[List[str], List[str], List[str]]:
         """Parse node path to extract cabins, companies, and hauls"""
@@ -743,8 +761,8 @@ class PBIDataCollector:
             df = self._execute_query(query)
             
             if not df.empty:
-                # Clean column names
-                df.columns = [col.strip('[]') for col in df.columns]
+                # Clean column names safely
+                df = self._safe_clean_columns(df)
                 print(f"         🔍 DEBUG: PBI collector received comparison_filter: '{comparison_filter}'")
                 print(f"         ✅ Collected {len(df)} explanatory drivers for analysis (filter: {comparison_filter})")
             
@@ -778,8 +796,8 @@ class PBIDataCollector:
             df = self._execute_query(query)
             
             if not df.empty:
-                # Clean column names
-                df.columns = [col.strip('[]') for col in df.columns]
+                # Clean column names safely
+                df = self._safe_clean_columns(df)
                 print(f"         ✅ Collected {len(df)} routes for analysis (filter: {comparison_filter})")
             
             return df
@@ -813,8 +831,16 @@ class PBIDataCollector:
             df = self._execute_query(query)
             
             if not df.empty:
-                # Clean column names
-                df.columns = [col.strip('[]') for col in df.columns]
+                # Clean column names - safely handle None columns
+                cleaned_columns = []
+                for col in df.columns:
+                    if col is not None and isinstance(col, str):
+                        cleaned_columns.append(col.strip('[]'))
+                    else:
+                        # Log problematic columns and use a safe default
+                        print(f"         ⚠️ Found None/invalid column name: {col}, using default")
+                        cleaned_columns.append(f"Column_{len(cleaned_columns)}")
+                df.columns = cleaned_columns
                 print(f"         ✅ Collected {len(df)} customer profile segments for analysis (dimension: {profile_dimension}, filter: {comparison_filter})")
             
             return df

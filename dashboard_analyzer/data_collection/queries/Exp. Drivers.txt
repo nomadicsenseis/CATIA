@@ -10,8 +10,11 @@ DEFINE
 
     VAR __DS0FilterTable4 =
         FILTER(
-            KEEPFILTERS(VALUES('Date_Master'[Date])),
-            'Date_Master'[Date] = DATE(__CURRENT_YEAR__, __CURRENT_MONTH__, __CURRENT_DAY__)
+            KEEPFILTERS(VALUES('Date_Master'[Date])),   
+            AND(
+                'Date_Master'[Date] >= DATE(__START_YEAR__, __START_MONTH__, __START_DAY__),
+                'Date_Master'[Date] < DATE(__END_YEAR__, __END_MONTH__, __END_DAY__)
+            )
         )
 
     VAR __DS0FilterTable5 =

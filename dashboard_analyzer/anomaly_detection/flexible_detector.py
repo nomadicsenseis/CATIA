@@ -245,12 +245,7 @@ class FlexibleAnomalyDetector:
             }
             
             # Classify anomaly
-            if deviation > self.threshold:
-                anomalies[node_path] = "+"
-            elif deviation < -self.threshold:
-                anomalies[node_path] = "-"
-            else:
-                anomalies[node_path] = "N"
+            anomalies[node_path] = self._classify_anomaly_new_logic(deviation)
         
         return anomalies, deviations, nps_values
     
@@ -339,12 +334,7 @@ class FlexibleAnomalyDetector:
             }
             
             # Classify anomaly using same threshold as mean-based detection
-            if deviation > self.threshold:
-                anomalies[node_path] = "+"
-            elif deviation < -self.threshold:
-                anomalies[node_path] = "-"
-            else:
-                anomalies[node_path] = "N"
+            anomalies[node_path] = self._classify_anomaly_new_logic(deviation)
         
         return anomalies, deviations, nps_values
     
@@ -511,3 +501,23 @@ class FlexibleAnomalyDetector:
             anomalies, deviations, nps_values = self._detect_vslast_anomalies(all_data, target_period, periods)
             
         return anomalies, deviations, periods, nps_values 
+
+    def _classify_anomaly_new_logic(self, deviation: float) -> str:
+        """
+        New anomaly classification logic:
+        - Any negative deviation (bajada) -> Study (negative anomaly)
+        - Only positive deviations > 7 points -> Study (positive anomaly)
+        - Positive deviations ≤ 7 points -> Not studied
+        """
+        if deviation < 0:
+            # Any negative deviation (bajada) is studied
+            if deviation < -5:
+                return "-"  # Pronounced negative anomaly
+            else:
+                return "-"  # Negative anomaly (studied but not pronounced)
+        elif deviation > 7:
+            # Only positive deviations > 7 points are studied
+            return "+"  # Positive anomaly
+        else:
+            # Positive deviations ≤ 7 points are not studied
+            return "N"  # No anomaly (not studied) 
