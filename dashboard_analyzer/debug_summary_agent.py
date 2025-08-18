@@ -95,18 +95,26 @@ async def main():
                     "anomalies": ["daily_analysis"]  # Placeholder for anomalies
                 }
                 
-                # All reports are daily reports since they have individual dates
-                daily_reports.append(report_for_agent)
+                # Classify reports based on date format (more reliable than study_mode)
+                if "_to_" in date:
+                    # This is a weekly/comparative report (date range)
+                    if weekly_report is None:
+                        weekly_report = final_interpretation
+                        print(f"📊 Found weekly report: {date} (study_mode: {study_mode})")
+                    else:
+                        print(f"⚠️ Multiple weekly reports found, using first one: {date}")
+                else:
+                    # This is a daily/single report (single date)
+                    daily_reports.append(report_for_agent)
+                    print(f"📅 Found daily report: {date} (study_mode: {study_mode})")
 
-            # Use the first report as weekly report (comprehensive analysis)
-            if reports_content:
-                first_report = reports_content[0]
-                weekly_report = first_report.get("final_interpretation", "")
-                print(f"📊 Using first report as weekly analysis and {len(daily_reports)} daily reports...")
-
+            # Verify we have the required reports
             if not weekly_report:
                 print("⚠️ No weekly comparative report found. Cannot generate a comprehensive summary.")
                 return
+
+            if not daily_reports:
+                print("⚠️ No daily reports found. Summary may be incomplete.")
 
             print(f"📊 Processing {len(daily_reports)} daily reports and 1 weekly report...")
 

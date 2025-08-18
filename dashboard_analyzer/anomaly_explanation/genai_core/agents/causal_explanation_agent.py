@@ -70,6 +70,40 @@ class CleanConversationTracker:
         self.identified_routes = []
         self.last_tool_context = None
         
+    def reset(self):
+        """Resets the agent's state for a new analysis run."""
+        self.anomaly_type = "unknown"
+        self.collected_data = {
+            "explanatory_drivers": None,
+            "ncs": None,
+            "routes": None,
+            "customer_profile": None,
+            "operative_data": None,
+            "verbatims": None
+        }
+        self.conversation_log = []
+        self.iteration_count = 0
+        self.previous_explanations = []
+        self.identified_routes = []
+        self.last_tool_context = None
+        
+    def reset(self):
+        """Resets the agent's state for a new analysis run."""
+        self.anomaly_type = "unknown"
+        self.collected_data = {
+            "explanatory_drivers": None,
+            "ncs": None,
+            "routes": None,
+            "customer_profile": None,
+            "operative_data": None,
+            "verbatims": None
+        }
+        self.conversation_log = []
+        self.iteration_count = 0
+        self.previous_explanations = []
+        self.identified_routes = []
+        self.last_tool_context = None
+        
     def log_message(self, message_type: str, content: str, metadata: Optional[Dict] = None):
         """Log a message in the conversation"""
         self.conversation_log.append({
@@ -467,15 +501,24 @@ class CausalExplanationAgent:
                 df['Shapdiff'] = pd.to_numeric(df['Shapdiff'], errors='coerce')
                 
                 # Filter out non-driver touchpoints (NPS values are not explanatory drivers)
-                touchpoint_col = 'TouchPoint_Master[filtered_name'
-                if touchpoint_col in df.columns:
+                candidate_touchpoint_cols = [
+                    'TouchPoint_Master[filtered_name]',
+                    'TouchPoint_Master[filtered_name',
+                    'filtered_name',
+                    'Filtered_name',
+                    'TouchPoint_Master filtered_name'
+                ]
+                touchpoint_col = next((c for c in candidate_touchpoint_cols if c in df.columns), None)
+                if touchpoint_col:
                     # Filter out NPS comparison values that are not real touchpoints
                     df_filtered = df[~df[touchpoint_col].isin(['NPS', 'NPS Comparative'])]
                 else:
                     df_filtered = df
                 
                 # Get ALL touchpoints, not just significant ones
-                all_touchpoints = df_filtered.dropna(subset=['Shapdiff'])
+                all_touchpoints = df_filtered.copy()
+                all_touchpoints['Shapdiff'] = pd.to_numeric(all_touchpoints['Shapdiff'], errors='coerce')
+                all_touchpoints = all_touchpoints.dropna(subset=['Shapdiff'])
                 
                 if len(all_touchpoints) > 0:
                     analysis_result.append("ALL SHAP drivers found (including non-significant):")
@@ -497,7 +540,11 @@ class CausalExplanationAgent:
                             
                             for i, (_, row) in enumerate(all_touchpoints_sorted.iterrows()):
                                 # No limit - show all SHAP values
-                                touchpoint = row.get('TouchPoint_Master[filtered_name', 'Unknown') if hasattr(row, 'get') else 'Unknown'
+                                if hasattr(row, 'get') and touchpoint_col and touchpoint_col in row:
+                                    touchpoint = row.get(touchpoint_col)
+                                else:
+                                    candidate_cols_in_row = [c for c in all_touchpoints_sorted.columns if isinstance(row.get(c, None), str)]
+                                    touchpoint = row.get(candidate_cols_in_row[0]) if candidate_cols_in_row else 'Unknown'
                                 shap_value = row['Shapdiff'] if 'Shapdiff' in row else 0.0
                                 sat_diff = row.get('Satisfaction diff', 'N/A') if hasattr(row, 'get') else 'N/A'
                                 
@@ -650,10 +697,15 @@ class CausalExplanationAgent:
         """Execute a tool for single period analysis"""
         try:
             if tool_name == "operative_data_tool":
+                # FIX: Define a fixed baseline period (e.g., 14 days prior to the analysis end date)
+                end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+                baseline_start_dt = end_dt - timedelta(days=14)
+                
                 return await self._operative_data_tool_single_period(
                     node_path=node_path,
                     start_date=start_date,
-                    end_date=end_date
+                    end_date=end_date,
+                    baseline_start_date=baseline_start_dt.strftime('%Y-%m-%d')
                 )
             elif tool_name == "ncs_tool":
                 return await self._ncs_tool_single_period(
@@ -690,35 +742,34 @@ class CausalExplanationAgent:
             self.logger.error(f"❌ Error executing {tool_name} for single period: {type(e).__name__}: {str(e)}")
             return f"ERROR executing {tool_name} for single period: {type(e).__name__}: {str(e)}"
     
-    async def _operative_data_tool_single_period(self, node_path: str, start_date, end_date) -> str:
+    async def _operative_data_tool_single_period(self, node_path: str, start_date: str, end_date: str, baseline_start_date: str) -> str:
         """Operative data tool for single period analysis (absolute values + correlation analysis)"""
         try:
-            self.logger.info(f"Collecting operative data for {node_path} on {end_date} for single period analysis")
+            self.logger.info(f"Collecting operative data for {node_path} from {baseline_start_date} to {end_date} for single period analysis")
             
             # Convert string dates to datetime
-            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
             end_dt = datetime.strptime(end_date, '%Y-%m-%d')
-            
-            # Get operative data for the specific period only (PBIDataCollector methods are async)
-            operative_data = await self.pbi_collector.collect_operative_data_for_date(
+            baseline_start_dt = datetime.strptime(baseline_start_date, '%Y-%m-%d')
+
+            # Get operative data for the entire range (baseline + target day)
+            operative_data = await self.pbi_collector.collect_operative_data_for_date_range(
                 node_path=node_path,
-                target_date=end_dt,
-                comparison_days=7,  # Get 7 days for mean comparison
-                use_flexible=True
+                start_date=baseline_start_dt,
+                end_date=end_dt,
             )
             
             if operative_data.empty:
-                return f"No operative data found for {node_path} on {end_date}"
+                return f"No operative data found for {node_path} in range {baseline_start_date} to {end_date}"
             
-            # Always use correlation analysis for single mode (shows both absolute values and correlation)
+            # Pass the full dataset and the specific target date for correlation analysis
             return await self._operative_data_tool_correlation_analysis(node_path, operative_data, end_date)
             
         except Exception as e:
             self.logger.error(f"❌ Error in single period operative data tool: {type(e).__name__}: {str(e)}")
             return f"ERROR in operative data tool: {type(e).__name__}: {str(e)}"
     
-    async def _operative_data_tool_correlation_analysis(self, node_path: str, operative_data: pd.DataFrame, end_date: str) -> str:
-        """Operative data tool with correlation analysis (absolute values + correlation with NPS anomaly)"""
+    async def _operative_data_tool_correlation_analysis(self, node_path: str, operative_data: pd.DataFrame, target_date_str: str) -> str:
+        """Operative data tool with correlation analysis using a fixed baseline."""
         try:
             # Clean the data
             cleaned_data = operative_data.copy()
@@ -727,20 +778,29 @@ class CausalExplanationAgent:
                 if col in cleaned_data.columns:
                     cleaned_data[col] = cleaned_data[col].replace('', pd.NA)
                     cleaned_data[col] = pd.to_numeric(cleaned_data[col], errors='coerce')
+
+            # Convert 'Date' column to datetime objects for filtering
+            cleaned_data['Date'] = pd.to_datetime(cleaned_data['Date'])
             
-            # Get target date data (most recent)
-            target_date_data = cleaned_data.iloc[-1] if len(cleaned_data) > 0 else cleaned_data.iloc[0]
+            # Get target date data
+            target_date_dt = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+            target_date_data = cleaned_data[cleaned_data['Date'].dt.date == target_date_dt]
+
+            if target_date_data.empty:
+                 return f"No operative data found for the specific date {target_date_str}"
             
-            # Calculate 7-day average for comparison
-            week_data = cleaned_data.tail(7)  # Last 7 days
+            target_date_data = target_date_data.iloc[0]
+
+            # Calculate baseline average from the full dataset (excluding the target date itself)
+            baseline_data = cleaned_data[cleaned_data['Date'].dt.date < target_date_dt]
             
-            if len(week_data) < 3:
-                return f"📊 **DATOS OPERATIVOS - ANÁLISIS CORRELACIÓN**\n📅 Fecha: {end_date}\n🎯 Segmento: {node_path}\n⚠️ Insuficientes datos para correlación (solo {len(week_data)} días disponibles)"
+            if len(baseline_data) < 3:
+                return f"📊 **DATOS OPERATIVOS - ANÁLISIS CORRELACIÓN**\n📅 Fecha: {target_date_str}\n🎯 Segmento: {node_path}\n⚠️ Insuficientes datos para baseline (solo {len(baseline_data)} días disponibles)"
             
             # Format correlation analysis results
             result_parts = []
             result_parts.append(f"📊 **DATOS OPERATIVOS - ANÁLISIS CORRELACIÓN**")
-            result_parts.append(f"📅 Fecha: {end_date}")
+            result_parts.append(f"📅 Fecha: {target_date_str}")
             result_parts.append(f"🎯 Segmento: {node_path}")
             result_parts.append("")
             result_parts.append("**VALORES ABSOLUTOS Y CORRELACIÓN CON NPS:**")
@@ -751,12 +811,12 @@ class CausalExplanationAgent:
             
             for metric in numeric_columns:
                 if metric in cleaned_data.columns:
-                    week_values = week_data[metric].dropna()
+                    baseline_values = baseline_data[metric].dropna()
                     day_value = target_date_data.get(metric)
                     
-                    if not week_values.empty and not pd.isna(day_value) and len(week_values) >= 3:
-                        week_avg = week_values.mean()
-                        delta = day_value - week_avg
+                    if not baseline_values.empty and not pd.isna(day_value) and len(baseline_values) >= 3:
+                        baseline_avg = baseline_values.mean()
+                        delta = day_value - baseline_avg
                         
                         # Determine significance threshold
                         thresholds = {
@@ -772,7 +832,7 @@ class CausalExplanationAgent:
                         significance = " ⚠️" if is_significant else ""
                         
                         # Format metric line
-                        metric_line = f"• {metric}: {day_value:.1f}% (media: {week_avg:.1f}%, {direction}{abs(delta):.1f}pts){significance}"
+                        metric_line = f"• {metric}: {day_value:.1f}% (media: {baseline_avg:.1f}%, {direction}{abs(delta):.1f}pts){significance}"
                         metrics_analysis.append(metric_line)
                         
                         # Analyze correlation with NPS anomaly (assuming negative NPS anomaly)
@@ -4142,9 +4202,9 @@ class CausalExplanationAgent:
             prompt_size = len(reflection_prompt)
             self.logger.debug(f"📏 Reflection prompt size: {prompt_size} chars")
             
-            if prompt_size > 30000:  # 30KB limit for reflection
+            if prompt_size > 60000:  # 60KB limit for reflection
                 self.logger.warning(f"⚠️ Reflection prompt very large ({prompt_size} chars) - truncating tool result")
-                truncated_result = tool_result[:15000] + "\n\n[... TOOL RESULT TRUNCATED DUE TO SIZE ...]"
+                truncated_result = tool_result[:30000] + "\n\n[... TOOL RESULT TRUNCATED DUE TO SIZE ...]"
                 reflection_template = self._get_reflection_prompt(mode)
                 if reflection_template:
                     # Ensure causal_filter has a safe value for template formatting
@@ -4232,7 +4292,7 @@ class CausalExplanationAgent:
         request_size = len(enhanced_final_request)
         self.logger.info(f"📏 Final request size: {request_size} chars")
         
-        if request_size > 50000:  # 50KB limit (reduced from 100KB)
+        if request_size > 100000:  # 100KB limit
             self.logger.warning(f"⚠️ Final request very large ({request_size} chars) - truncating data summary")
             # Truncate data summary to prevent LLM overload
             truncated_summary = data_summary[:25000] + "\n\n[... DATA TRUNCATED DUE TO SIZE ...]"

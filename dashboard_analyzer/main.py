@@ -1596,14 +1596,21 @@ async def run_comprehensive_analysis(
             date_flight_local=date_flight_local,
             study_mode="comparative",
         )
-        if weekly_report_path and "Error" not in weekly_report_path:
-            generated_reports.append(weekly_report_path)
-            print(f"✅ Weekly analysis completed. Report: {weekly_report_path}")
+        if weekly_report_path and "Error" not in str(weekly_report_path):
+            # Store the actual data, not just the path
+            generated_reports.append({
+                'type': 'weekly',
+                'data': weekly_report_path
+            })
+            print(f"✅ Weekly analysis completed. Data length: {len(str(weekly_report_path))} chars")
         else:
-            print(f"⚠️ Weekly analysis completed but no anomalies found or insufficient data. Report: {weekly_report_path}")
+            print(f"⚠️ Weekly analysis completed but no anomalies found or insufficient data.")
             # Even if no anomalies found, we should still include the weekly analysis
-            if weekly_report_path and "Error" not in weekly_report_path:
-                generated_reports.append(weekly_report_path)
+            if weekly_report_path and "Error" not in str(weekly_report_path):
+                generated_reports.append({
+                    'type': 'weekly',
+                    'data': weekly_report_path
+                })
 
     except Exception as e:
         print(f"❌ CRITICAL ERROR during weekly analysis: {e}")
@@ -1630,9 +1637,13 @@ async def run_comprehensive_analysis(
             date_flight_local=date_flight_local,
             study_mode="single",
         )
-        if daily_report_path and "Error" not in daily_report_path:
-            generated_reports.append(daily_report_path)
-            print(f"✅ Daily analysis completed. Report: {daily_report_path}")
+        if daily_report_path and "Error" not in str(daily_report_path):
+            # Store the actual data, not just the path
+            generated_reports.append({
+                'type': 'daily',
+                'data': daily_report_path
+            })
+            print(f"✅ Daily analysis completed. Data length: {len(str(daily_report_path))} chars")
         else:
             print(f"❌ Daily analysis failed. Reason: {daily_report_path}")
     except Exception as e:
@@ -1652,21 +1663,34 @@ async def run_comprehensive_analysis(
         weekly_comparative_analysis = None
         daily_single_analyses = []
 
-        # Assuming the first report is weekly and the second is daily
-        if len(generated_reports) > 0:
-            weekly_comparative_analysis = generated_reports[0]
-        if len(generated_reports) > 1:
-            # The daily analysis is a list of dictionaries from show_silent_anomaly_analysis
-            daily_single_analyses = generated_reports[1]
-            
-            # Convert the daily analysis to the format expected by the summary agent
-            if isinstance(daily_single_analyses, list):
-                # It's already in the correct format (list of dicts)
-                print(f"✅ Daily analysis data: {len(daily_single_analyses)} periods")
-            else:
-                # It's a string, convert to the expected format
-                print(f"⚠️ Converting daily analysis from string to expected format")
-                daily_single_analyses = []
+        # Process the reports from memory
+        weekly_comparative_analysis = ""
+        daily_single_analyses = []
+        
+        for report in generated_reports:
+            if report['type'] == 'weekly':
+                # Weekly report is already in the correct format (string)
+                weekly_comparative_analysis = report['data']
+                print(f"✅ Found weekly report: {len(weekly_comparative_analysis)} chars")
+            elif report['type'] == 'daily':
+                # Daily report is a list of dictionaries with the structure expected by summary agent
+                daily_single_analyses = report['data']
+                print(f"✅ Found daily analysis data: {len(daily_single_analyses)} periods")
+        
+        # Convert daily data to the format expected by summary agent if needed
+        if daily_single_analyses and isinstance(daily_single_analyses, list):
+            # The data is already in the correct format from show_silent_anomaly_analysis
+            # Just need to ensure it has the right structure
+            formatted_daily_analyses = []
+            for daily in daily_single_analyses:
+                if isinstance(daily, dict) and 'ai_interpretation' in daily:
+                    formatted_daily_analyses.append({
+                        'date': daily.get('date_range', daily.get('period', 'Unknown')),
+                        'analysis': daily.get('ai_interpretation', ''),
+                        'anomalies': ['daily_analysis']
+                    })
+            daily_single_analyses = formatted_daily_analyses
+            print(f"✅ Formatted daily analyses: {len(daily_single_analyses)} periods")
 
         try:
             print("\n🤖 Initializing Summary Agent...")

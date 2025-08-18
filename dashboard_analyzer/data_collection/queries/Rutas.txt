@@ -27,7 +27,7 @@ DEFINE
         TREATAS({"'surveys_maritz'[issue_category]"}, 'Categories'[Categories Campos])
 
     VAR __DS0FilterTable7 =
-        TREATAS({"vs Sel. Period"}, 'Filtro_Comparativa'[Filtro_Comparativa])
+        TREATAS({"__COMPARISON_FILTER__"}, 'Filtro_Comparativa'[Filtro_Comparativa])
 
     VAR __DS0FilterTableSelPeriod =
         FILTER(

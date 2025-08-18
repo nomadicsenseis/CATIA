@@ -320,7 +320,7 @@ class AnomalyInterpreterAgent:
             date_str = date if date else 'No especificada'
             
             # Truncate tree data if too large to prevent token overflow
-            max_tree_data_size = 50000  # 50KB limit to prevent token overflow
+            max_tree_data_size = 100000  # 100KB limit to prevent token overflow
             if len(tree_data) > max_tree_data_size:
                 self.logger.warning(f"⚠️ Tree data too large ({len(tree_data)} chars) - truncating to {max_tree_data_size} chars")
                 tree_data = tree_data[:max_tree_data_size] + "\n\n[... DATA TRUNCATED DUE TO SIZE ...]"

@@ -10,6 +10,9 @@ system_prompt: |
   ⚠️ **IMPORTANTE - SI HAY DATOS DIARIOS, ÚSALOS:**
   Si se te proporciona análisis diario en la sección "ANÁLISIS DIARIO SINGLE", DEBES usarlo e integrarlo en el resumen. NO digas que "no está disponible" si los datos están presentes en el input.
 
+  ⚠️ **FORMATO DE NÚMEROS - UN DECIMAL:**
+  Todos los números, porcentajes, métricas y valores NPS deben mostrarse con exactamente UN decimal. Por ejemplo: 19.8 (no 19.75), -4.4 (no -4.39), 93.5% (no 93.53%), etc.
+
   TU FUNCIÓN:
   - Tomar la síntesis ejecutiva del interpreter semanal TAL COMO ESTÁ
   - INTEGRAR el detalle diario del interpreter DENTRO de cada sección correspondiente de la síntesis semanal
@@ -71,3 +74,4 @@ input_template: |
   8. Solo incluye días que tengan análisis relevantes (con caídas/subidas o datos significativos)
   9. Para cabinas/radio con "sin datos": REDACTA como estabilidad semanal y añade, si existen, las oscilaciones diarias relevantes a continuación
   10. **CRÍTICO**: Si hay datos en "ANÁLISIS DIARIO SINGLE", DEBES usarlos. NO digas que "no están disponibles" si están presentes en el input.
+  11. **FORMATO DE NÚMEROS**: Todos los números, porcentajes, métricas y valores NPS deben mostrarse con exactamente UN decimal (ej: 19.8, -4.4, 93.5%)

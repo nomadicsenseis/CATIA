@@ -101,6 +101,12 @@ class FlexibleAnomalyInterpreter:
         
         # Update instance variables with the passed parameters
         print(f"         🔍 DEBUG: explain_anomaly called with causal_filter: '{causal_filter}'")
+        
+        # Always reset the causal agent to ensure clean state for each analysis
+        if hasattr(self, 'causal_agent') and self.causal_agent:
+            print(f"         🔄 Resetting causal agent for clean analysis of segment: {node_path}")
+            self.causal_agent.reset()
+        
         if causal_filter:
             self.causal_filter = causal_filter
         if comparison_start_date:

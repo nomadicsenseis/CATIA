@@ -36,11 +36,20 @@ def extract_final_interpretation(conversation_file_path):
         
         # Extract date from filename or metadata
         filename = os.path.basename(conversation_file_path)
-        date_match = re.search(r'(\d{4}-\d{2}-\d{2})', filename)
-        if date_match:
-            date = date_match.group(1)
+        
+        # Try to extract date range first (for weekly analysis)
+        date_range_match = re.search(r'(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})', filename)
+        if date_range_match:
+            start_date = date_range_match.group(1)
+            end_date = date_range_match.group(2)
+            date = f"{start_date}_to_{end_date}"  # Use range format for weekly
         else:
-            date = metadata.get('start_date', 'Unknown')
+            # Try single date (for daily analysis)
+            date_match = re.search(r'(\d{4}-\d{2}-\d{2})', filename)
+            if date_match:
+                date = date_match.group(1)
+            else:
+                date = metadata.get('start_date', 'Unknown')
         
         return {
             'date': date,

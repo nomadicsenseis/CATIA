@@ -161,16 +161,18 @@ class FlexibleAnomalyDetector:
         deviations = {}
         nps_values = {}  # Store actual NPS values for display
         
-        # Use the n periods immediately after the target period for baseline calculation
-        # For Period 1, use Periods 2, 3, 4, 5, 6, 7, 8 (the 7 weeks before the target week)
-        baseline_periods = [target_period + i for i in range(1, self.baseline_periods + 1) if (target_period + i) in all_periods]
+        # FIX: Calculate baseline periods once, independent of the target_period loop
+        # The baseline should be the same for all nodes analyzed within the same run.
+        # It takes the periods immediately following the *latest* period in the analysis.
+        latest_period_for_baseline = all_periods[0]
+        baseline_periods = [latest_period_for_baseline + i for i in range(1, self.baseline_periods + 1) if (latest_period_for_baseline + i) in all_periods]
         
         if len(baseline_periods) < 3:
             print(f"⚠️ Insufficient baseline data for period {target_period} (need at least 3 periods)")
             return anomalies, deviations, nps_values
         
         # Only print baseline info once per period  
-        print(f"📈 Period {target_period}: baseline mean of periods {baseline_periods} (last {self.baseline_periods} periods)")
+        print(f"📈 Period {target_period}: baseline mean of periods {baseline_periods} (last {self.baseline_periods} periods relative to latest)")
         
         for node_path, df in all_data.items():
             if 'Period_Group' not in df.columns:
