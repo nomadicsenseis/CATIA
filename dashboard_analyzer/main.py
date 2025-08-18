@@ -1555,12 +1555,15 @@ async def run_comprehensive_analysis(
     date_parameter: str,
     segment: str = "Global",
     explanation_mode: str = "agent",
-    anomaly_detection_mode: str = "target",
-    baseline_periods: int = 7,
     causal_filter: str = "vs L7d",
     comparison_start_date: Optional[datetime] = None,
     comparison_end_date: Optional[datetime] = None,
     date_flight_local: Optional[str] = None,
+    # Parameters for daily analysis with defaults matching old hardcoded values
+    daily_anomaly_detection_mode: str = 'mean',
+    daily_baseline_periods: int = 7,
+    daily_aggregation_days: int = 1,
+    daily_periods: int = 7
 ):
     """
     Refactored comprehensive analysis to be a clean orchestrator.
@@ -1587,7 +1590,7 @@ async def run_comprehensive_analysis(
             segment=segment,
             explanation_mode=explanation_mode,
             anomaly_detection_mode='vslast',
-            baseline_periods=baseline_periods,
+            baseline_periods=7,
             aggregation_days=7,
             periods=1,
             causal_filter=causal_filter,
@@ -1627,10 +1630,10 @@ async def run_comprehensive_analysis(
             date_parameter=date_parameter,
             segment=segment,
             explanation_mode=explanation_mode,
-            anomaly_detection_mode='mean',
-            baseline_periods=7,
-            aggregation_days=1,
-            periods=7,
+            anomaly_detection_mode=daily_anomaly_detection_mode,
+            baseline_periods=daily_baseline_periods,
+            aggregation_days=daily_aggregation_days,
+            periods=daily_periods,
             causal_filter=None,
             comparison_start_date=None,
             comparison_end_date=None,
@@ -1916,11 +1919,15 @@ async def run_flexible_analysis_silent(data_folder: str, analysis_date: datetime
     )
     
     # Calculate the correct period numbers based on date parameter type and periods parameter
+    reference_period = None  # Will be used for baseline calculation when date_flight_local is specified
     if analysis_date and date_parameter:
-        if date_parameter in ['flight_local', 'available']:
+        if any(param in date_parameter for param in ['flight_local', 'available']):
             # For date_flight_local or default available: treat analysis_date as the most recent period (period 1)
             # Analyze the specified number of most recent periods relative to that date
             periods_to_analyze = list(range(1, periods + 1))  # Periods 1, 2, 3, ... up to specified count
+            if 'flight_local' in date_parameter:
+                # When date_flight_local is specified, use period 1 as reference for baseline calculation
+                reference_period = 1
         elif date_parameter == 'insert_ci':
             # For insert_date_ci: calculate actual period numbers relative to today
             base_period = calculate_actual_period_number(analysis_date)
@@ -1940,7 +1947,7 @@ async def run_flexible_analysis_silent(data_folder: str, analysis_date: datetime
         with redirect_stdout(devnull), redirect_stderr(devnull):
             try:
                 for period in periods_to_analyze:
-                    period_anomalies, period_deviations, period_explanations, period_nps_values = await detector.analyze_period(data_folder, period, analysis_date)
+                    period_anomalies, period_deviations, period_explanations, period_nps_values = await detector.analyze_period(data_folder, period, analysis_date, reference_period)
                     
                     # Check if any node has an anomaly
                     has_anomaly = any(state in ['+', '-'] for state in period_anomalies.values())
@@ -2161,8 +2168,17 @@ async def show_silent_anomaly_analysis(analysis_data: dict, analysis_type: str, 
         
         # Get anomalies for this period
         analysis_date = analysis_data.get('analysis_date')
-        print(f"🔍 DEBUG DAILY_ANALYSIS: About to call detector.analyze_period for period {period}", file=sys.stderr)
-        analyze_result = await detector.analyze_period(data_folder, period, analysis_date)
+        date_parameter = analysis_data.get('date_parameter')
+        
+                # Calculate reference_period for baseline (same logic as in run_flexible_analysis_silent)
+        reference_period = None
+        if analysis_date and date_parameter:
+            if any(param in date_parameter for param in ['flight_local', 'available']):
+                if 'flight_local' in date_parameter:
+                    reference_period = 1
+        
+        print(f"🔍 DEBUG DAILY_ANALYSIS: About to call detector.analyze_period for period {period} with reference_period={reference_period}", file=sys.stderr)
+        analyze_result = await detector.analyze_period(data_folder, period, analysis_date, reference_period)
         print(f"🔍 DEBUG DAILY_ANALYSIS: Result type: {type(analyze_result)}", file=sys.stderr)
         print(f"🔍 DEBUG DAILY_ANALYSIS: Result length: {len(analyze_result) if hasattr(analyze_result, '__len__') else 'No length'}", file=sys.stderr)
         
@@ -2920,8 +2936,8 @@ async def main():
     parser = argparse.ArgumentParser(description='Enhanced Flexible NPS Anomaly Detection')
     parser.add_argument('--mode', choices=['download', 'analyze', 'both', 'comprehensive'], default='comprehensive',
                        help='Mode: download data, analyze existing data, both, or comprehensive (daily + weekly)')
-    parser.add_argument('--study-mode', choices=['single', 'comparative'], 
-                       help='Analysis mode: single (no comparison) or comparative (with comparison). Auto-detected based on aggregation_days if not specified.')
+    parser.add_argument('--study-mode', choices=['single', 'comparative'], default='comparative',
+                       help='Analysis mode: single (no comparison) or comparative (with comparison). Default: comparative')
     parser.add_argument('--folder', type=str, 
                        help='Specific folder to analyze (e.g., tables/available_2025_06_04)')
     parser.add_argument('--aggregation-days', type=int, default=1,
@@ -3057,6 +3073,27 @@ async def main():
                 comparison_start_date=args.comparison_start_date,
                 comparison_end_date=args.comparison_end_date,
                 date_flight_local=args.date_flight_local
+            )
+            return
+        
+        # Handle flexible/both mode for custom analysis
+        elif args.mode == 'both':
+            print("\n🔬 RUNNING FLEXIBLE ANALYSIS MODE (custom parameters)")
+            print("============================================================")
+            await execute_analysis_flow(
+                analysis_date=analysis_date,
+                date_parameter=date_parameter,
+                segment=args.segment,
+                explanation_mode=args.explanation_mode,
+                anomaly_detection_mode=args.anomaly_detection_mode,
+                baseline_periods=args.baseline_periods,
+                aggregation_days=args.aggregation_days,
+                periods=args.periods,
+                causal_filter=args.causal_filter_comparison,
+                comparison_start_date=args.comparison_start_date,
+                comparison_end_date=args.comparison_end_date,
+                date_flight_local=args.date_flight_local,
+                study_mode=args.study_mode
             )
             return
         
@@ -3525,9 +3562,13 @@ async def execute_analysis_flow(
     This includes data download, anomaly detection, and interpretation.
     """
 
+    # Adjust causal_filter based on study_mode
+    if study_mode == "single":
+        causal_filter = None
+    
     print(f"\n{'='*60}")
     print(f"🚀 EXECUTING ANALYSIS FLOW")
-    print(f"   - Study Mode: {study_mode.upper()}")
+    print(f"   - Study Mode: {study_mode.upper() if study_mode else 'AUTO-DETECTED'}")
     print(f"   - Aggregation: {aggregation_days} days")
     print(f"   - Periods: {periods}")
     print(f"   - Causal Filter: {causal_filter}")

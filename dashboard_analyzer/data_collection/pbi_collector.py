@@ -152,7 +152,26 @@ class PBIDataCollector:
         companies_str = '", "'.join(companies)
         hauls_str = '", "'.join(hauls)
         
-        # Replace the template placeholders
+        # If analysis_date is provided, handle date-specific replacements FIRST
+        if analysis_date:
+            print(f"  📅 Using analysis date: {analysis_date.strftime('%Y-%m-%d')} for NPS aggregation")
+            # Replace the date filter to end on analysis_date instead of TODAY()
+            old_date_filter = "'Date_Master'[Date] >= DATE(2024,01,01) && 'Date_Master'[Date] <= TODAY()"
+            new_date_filter = f"'Date_Master'[Date] >= DATE(2024,01,01) && 'Date_Master'[Date] <= DATE({analysis_date.year},{analysis_date.month},{analysis_date.day})"
+            print(f"  📝 NPS date filter BEFORE: {old_date_filter}")
+            template = template.replace(old_date_filter, new_date_filter)
+            print(f"  📝 NPS date filter AFTER: {new_date_filter}")
+            
+            # Replace the period calculation to use analysis_date as reference (BEFORE replacing AGGREGATION_DAYS)
+            old_period_calc = "INT(DATEDIFF( 'Date_Master'[Date],max('Date_Master'[Date]), DAY) / {AGGREGATION_DAYS}) + 1)"
+            new_period_calc = f"INT(DATEDIFF( 'Date_Master'[Date],DATE({analysis_date.year},{analysis_date.month},{analysis_date.day}), DAY) / {{AGGREGATION_DAYS}}) + 1)"
+            print(f"  📝 NPS period calc BEFORE: {old_period_calc}")
+            template = template.replace(old_period_calc, new_period_calc)
+            print(f"  📝 NPS period calc AFTER: {new_period_calc}")
+        else:
+            print(f"  ⚠️ No analysis_date provided, using default TODAY() and max('Date_Master'[Date])")
+        
+        # Now replace the template placeholders
         query = template.replace(
             '{AGGREGATION_DAYS}', str(aggregation_days)
         ).replace(
@@ -165,26 +184,6 @@ class PBIDataCollector:
             'TREATAS({"SH","LH"}, \'Haul_Master\'[Haul_Aggr])',
             f'TREATAS({{"{hauls_str}"}}, \'Haul_Master\'[Haul_Aggr])'
         )
-        
-        # If analysis_date is provided, replace TODAY() and max date calculations
-        if analysis_date:
-            print(f"  📅 Using analysis date: {analysis_date.strftime('%Y-%m-%d')} instead of TODAY()")
-            # Replace the date filter to end on analysis_date instead of TODAY()
-            old_date_filter = "'Date_Master'[Date] >= DATE(2024,01,01) && 'Date_Master'[Date] <= TODAY()"
-            new_date_filter = f"'Date_Master'[Date] >= DATE(2024,01,01) && 'Date_Master'[Date] <= DATE({analysis_date.year},{analysis_date.month},{analysis_date.day})"
-            query = query.replace(old_date_filter, new_date_filter)
-            print(f"  📝 Date filter: {old_date_filter} → {new_date_filter}")
-            
-            # Replace the period calculation to use analysis_date as reference
-            # Match the exact pattern in the template (including the variable assignment)
-            old_period_calc = f"INT(DATEDIFF( 'Date_Master'[Date],max('Date_Master'[Date]), DAY) / {{AGGREGATION_DAYS}}) + 1)"
-            new_period_calc = f"INT(DATEDIFF( 'Date_Master'[Date],DATE({analysis_date.year},{analysis_date.month},{analysis_date.day}), DAY) / {aggregation_days}) + 1)"
-            
-            # Replace with the specific aggregation_days value
-            old_period_calc_with_days = old_period_calc.replace("{AGGREGATION_DAYS}", str(aggregation_days))
-            
-            query = query.replace(old_period_calc_with_days, new_period_calc)
-            print(f"  📝 Period calc: {old_period_calc_with_days} → {new_period_calc}")
         
         print(f"  📋 Final query preview: {query[:200]}...")
         return query

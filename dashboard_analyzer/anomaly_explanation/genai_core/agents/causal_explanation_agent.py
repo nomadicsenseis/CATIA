@@ -752,10 +752,11 @@ class CausalExplanationAgent:
             baseline_start_dt = datetime.strptime(baseline_start_date, '%Y-%m-%d')
 
             # Get operative data for the entire range (baseline + target day)
-            operative_data = await self.pbi_collector.collect_operative_data_for_date_range(
+            operative_data = await self.pbi_collector.collect_operative_data_for_date(
                 node_path=node_path,
-                start_date=baseline_start_dt,
-                end_date=end_dt,
+                target_date=end_dt,
+                comparison_days=14,
+                use_flexible=True
             )
             
             if operative_data.empty:

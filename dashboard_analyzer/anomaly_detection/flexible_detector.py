@@ -44,13 +44,14 @@ class FlexibleAnomalyDetector:
         # Cache for monthly targets to avoid redundant API calls
         self.monthly_targets_cache = {}
         
-    async def analyze_flexible_anomalies(self, data_folder: str, analysis_date=None) -> Tuple[Dict[str, str], Dict[str, float], List[str], Dict[str, Dict[str, float]]]:
+    async def analyze_flexible_anomalies(self, data_folder: str, analysis_date=None, reference_period: int = None) -> Tuple[Dict[str, str], Dict[str, float], List[str], Dict[str, Dict[str, float]]]:
         """
         Analyze flexible anomalies for the most recent period
         
         Args:
             data_folder: Path to data folder
             analysis_date: Optional analysis date (defaults to today)
+            reference_period: Optional reference period for baseline calculation (when date_flight_local is specified)
             
         Returns:
             Tuple of (anomalies, deviations, periods, nps_values)
@@ -93,7 +94,7 @@ class FlexibleAnomalyDetector:
         elif self.detection_mode == "mean":
             # Use mean-based detection
             print(f"📈 USING MEAN-BASED DETECTION")
-            anomalies, deviations, nps_values = self._detect_legacy_anomalies(all_data, latest_period, periods)
+            anomalies, deviations, nps_values = self._detect_legacy_anomalies(all_data, latest_period, periods, reference_period)
         else:  # vslast
             # Use vslast detection
             print(f"🔄 USING VSLAST DETECTION")
@@ -155,7 +156,7 @@ class FlexibleAnomalyDetector:
         return sorted(list(all_periods))
     
     def _detect_legacy_anomalies(self, all_data: Dict[str, pd.DataFrame], 
-                                target_period: int, all_periods: List[int]) -> Tuple[Dict[str, str], Dict[str, float], Dict[str, Dict[str, float]]]:
+                                target_period: int, all_periods: List[int], reference_period: int = None) -> Tuple[Dict[str, str], Dict[str, float], Dict[str, Dict[str, float]]]:
         """Detect anomalies for a specific period using mean of configurable number of periods as baseline"""
         anomalies = {}
         deviations = {}
@@ -163,8 +164,8 @@ class FlexibleAnomalyDetector:
         
         # FIX: Calculate baseline periods once, independent of the target_period loop
         # The baseline should be the same for all nodes analyzed within the same run.
-        # It takes the periods immediately following the *latest* period in the analysis.
-        latest_period_for_baseline = all_periods[0]
+        # Use reference_period if provided (when date_flight_local is specified), otherwise use the latest period
+        latest_period_for_baseline = reference_period if reference_period is not None else all_periods[0]
         baseline_periods = [latest_period_for_baseline + i for i in range(1, self.baseline_periods + 1) if (latest_period_for_baseline + i) in all_periods]
         
         if len(baseline_periods) < 3:
@@ -450,7 +451,7 @@ class FlexibleAnomalyDetector:
         
         return pd.DataFrame(summary_data)
     
-    async def analyze_period(self, data_folder: str, target_period: int, analysis_date=None) -> Tuple[Dict[str, str], Dict[str, float], List[str], Dict[str, Dict[str, float]]]:
+    async def analyze_period(self, data_folder: str, target_period: int, analysis_date=None, reference_period: int = None) -> Tuple[Dict[str, str], Dict[str, float], List[str], Dict[str, Dict[str, float]]]:
         """
         Analyze anomalies for a specific period
         
@@ -458,6 +459,7 @@ class FlexibleAnomalyDetector:
             data_folder: Path to data folder
             target_period: Period number to analyze
             analysis_date: Optional analysis date
+            reference_period: Optional reference period for baseline calculation (when date_flight_local is specified)
             
         Returns:
             Tuple of (anomalies, deviations, periods, nps_values)
@@ -496,7 +498,7 @@ class FlexibleAnomalyDetector:
         elif self.detection_mode == "mean":
             # Use mean-based detection
             print(f"📈 USING MEAN-BASED DETECTION")
-            anomalies, deviations, nps_values = self._detect_legacy_anomalies(all_data, target_period, periods)
+            anomalies, deviations, nps_values = self._detect_legacy_anomalies(all_data, target_period, periods, reference_period)
         else:  # vslast
             # Use vslast detection
             print(f"🔄 USING VSLAST DETECTION")
