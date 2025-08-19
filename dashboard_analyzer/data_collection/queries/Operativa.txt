@@ -40,7 +40,7 @@ if (DISTINCTCOUNT(Haul_Master[Haul_Aggr])>1 && DISTINCTCOUNT(Cabin_Master[Cabin_
             KEEPFILTERS(VALUES('Date_Master'[Date])),   
             AND(
                 'Date_Master'[Date] >= DATE(__START_YEAR__, __START_MONTH__, __START_DAY__),
-                'Date_Master'[Date] < DATE(__END_YEAR__, __END_MONTH__, __END_DAY__)
+                'Date_Master'[Date] <= DATE(__END_YEAR__, __END_MONTH__, __END_DAY__)
             )
         )
 

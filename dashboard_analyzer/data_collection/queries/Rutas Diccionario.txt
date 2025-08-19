@@ -6,7 +6,7 @@ VAR __DS0FilterTableSelPeriod =
         KEEPFILTERS(VALUES('Aux_Date_Master_Selected_Period'[Date_aux])),
         AND(
             'Aux_Date_Master_Selected_Period'[Date_aux] >= DATE(__START_YEAR__, __START_MONTH__, __START_DAY__),
-            'Aux_Date_Master_Selected_Period'[Date_aux] < DATE(__END_YEAR__, __END_MONTH__, __END_DAY__)
+            'Aux_Date_Master_Selected_Period'[Date_aux] <= DATE(__END_YEAR__, __END_MONTH__, __END_DAY__)
         ))
 
 EVALUATE

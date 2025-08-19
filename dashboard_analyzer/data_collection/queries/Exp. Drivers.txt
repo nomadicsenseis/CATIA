@@ -13,7 +13,7 @@ DEFINE
             KEEPFILTERS(VALUES('Date_Master'[Date])),   
             AND(
                 'Date_Master'[Date] >= DATE(__START_DATE__),
-                'Date_Master'[Date] < DATE(__END_DATE__)
+                'Date_Master'[Date] <= DATE(__END_DATE__)
             )
         )
 
