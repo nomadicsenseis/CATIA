@@ -1102,3 +1102,40 @@ class PBIDataCollector:
             )
         
         return query
+
+    async def collect_routes_dictionary(self) -> pd.DataFrame:
+        """
+        Colecta el diccionario simple de rutas para filtrado NCS
+        
+        Returns:
+            DataFrame con columnas: route, country_name, gr_region, haul_aggr
+        """
+        try:
+            self.logger.info("🗺️ Collecting routes dictionary for NCS filtering...")
+            
+            # Load the simple routes dictionary template
+            template = self._load_query_template("Rutas Diccionario.txt")
+            
+            # Execute query without any filters - we want the complete dictionary
+            result = await self._execute_query(template)
+            
+            if result is not None and not result.empty:
+                self.logger.info(f"✅ Collected routes dictionary with {len(result)} routes")
+                self.logger.debug(f"Routes dictionary columns: {list(result.columns)}")
+                
+                # Log some sample routes for debugging
+                if len(result) > 0:
+                    sample_routes = result.head(3)
+                    for _, route in sample_routes.iterrows():
+                        route_info = route.get('route', 'N/A')
+                        haul_info = route.get('haul_aggr', 'N/A')
+                        self.logger.debug(f"Sample route: {route_info} -> {haul_info}")
+                
+                return result
+            else:
+                self.logger.warning("❌ Routes dictionary query returned empty result")
+                return pd.DataFrame()
+                
+        except Exception as e:
+            self.logger.error(f"❌ Error collecting routes dictionary: {e}")
+            return pd.DataFrame()

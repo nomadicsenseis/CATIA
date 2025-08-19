@@ -4585,7 +4585,7 @@ class CausalExplanationAgent:
             cabins, companies, hauls = self.pbi_collector._get_node_filters(node_path)
             
             # Apply contextual filtering based on segment characteristics
-            filtered_ncs = self._apply_contextual_filtering(ncs_data, node_path)
+            filtered_ncs = await self._apply_contextual_filtering(ncs_data, node_path)
             
             # Log filtering results
             if len(filtered_ncs) < len(ncs_data):
@@ -4601,7 +4601,7 @@ class CausalExplanationAgent:
             # Return original data on error to ensure analysis continues
             return ncs_data
     
-    def _apply_contextual_filtering(self, ncs_data: pd.DataFrame, node_path: str) -> pd.DataFrame:
+    async def _apply_contextual_filtering(self, ncs_data: pd.DataFrame, node_path: str) -> pd.DataFrame:
         """
         Apply contextual filtering with the correct NCS logic:
         1. ALWAYS filter by haul (Global, LH, SH) based on routes/airports
@@ -4618,36 +4618,14 @@ class CausalExplanationAgent:
             incident_col = ncs_data.columns[0]
             filtered_ncs = ncs_data.copy()
             
-            # STEP 1: ALWAYS apply haul-based filtering (Global, LH, SH)
+            # STEP 1: ALWAYS apply haul-based filtering using Routes Dictionary (Global, LH, SH)
             if hauls and len(hauls) == 1:
                 haul_type = hauls[0]
                 
-                if haul_type == 'SH':
-                    # Short haul keywords and airport codes
-                    sh_keywords = ['MAD', 'BCN', 'PMI', 'VLC', 'SVQ', 'BIO', 'LPA', 'ACE', 'TFS', 
-                                 'AGP', 'MLN', 'ZAZ', 'VGO', 'SDR', 'OVD', 'LIS', 'DBV', 'ZAG',
-                                 'european', 'domestic', 'peninsular', 'nacional']
-                    sh_pattern = '|'.join([f'\\b{kw}\\b' for kw in sh_keywords])
-                    
-                    sh_mask = filtered_ncs[incident_col].str.contains(sh_pattern, na=False, regex=True, case=False)
-                    sh_incidents = filtered_ncs[sh_mask]
-                    
-                    if len(sh_incidents) > 0:
-                        self.logger.info(f"Short-haul contextual filtering: {len(sh_incidents)}/{len(filtered_ncs)} incidents")
-                        filtered_ncs = sh_incidents
-                
-                elif haul_type == 'LH':
-                    # Long haul keywords and airport codes
-                    lh_keywords = ['JFK', 'MIA', 'EZE', 'BOG', 'LIM', 'SCL', 'GRU', 'MEX', 'ORD',
-                                 'DFW', 'LAX', 'CCS', 'SDQ', 'HAV', 'BOS', 'international', 'transoceanic']
-                    lh_pattern = '|'.join([f'\\b{kw}\\b' for kw in lh_keywords])
-                    
-                    lh_mask = filtered_ncs[incident_col].str.contains(lh_pattern, na=False, regex=True, case=False)
-                    lh_incidents = filtered_ncs[lh_mask]
-                    
-                    if len(lh_incidents) > 0:
-                        self.logger.info(f"Long-haul contextual filtering: {len(lh_incidents)}/{len(filtered_ncs)} incidents")
-                        filtered_ncs = lh_incidents
+                # Use routes dictionary instead of hardcoded keywords
+                filtered_ncs = await self._filter_using_routes_dictionary(
+                    filtered_ncs, haul_type, incident_col
+                )
             
             # STEP 2: Apply cabin filtering ONLY when we're at cabin level AND need to exclude incidents that affect ONLY other cabins
             if cabins and len(cabins) == 1:
@@ -5566,6 +5544,74 @@ Proporciona análisis estructurado, específico y respaldado por números."""
                 touchpoints[touchpoint] = f'Mentioned in NCS analysis'
         
         return touchpoints
+
+    async def _filter_using_routes_dictionary(self, ncs_data: pd.DataFrame, target_haul: str, incident_col: str) -> pd.DataFrame:
+        """
+        Filtra NCS usando el diccionario de rutas en lugar de keywords hardcodeados
+        
+        Args:
+            ncs_data: DataFrame con incidentes NCS
+            target_haul: Haul objetivo ("LH" o "SH")
+            incident_col: Nombre de la columna con texto de incidentes
+            
+        Returns:
+            DataFrame filtrado por rutas del haul objetivo
+        """
+        try:
+            self.logger.info(f"🗺️ Filtering NCS using routes dictionary for haul: {target_haul}")
+            
+            # 1. Obtener diccionario de rutas
+            routes_dict = await self.pbi_collector.collect_routes_dictionary()
+            
+            if routes_dict.empty:
+                self.logger.warning("❌ Routes dictionary is empty, falling back to original data")
+                return ncs_data
+            
+            # 2. Filtrar rutas del haul objetivo
+            target_routes = routes_dict[routes_dict['haul_aggr'] == target_haul]
+            
+            if target_routes.empty:
+                self.logger.warning(f"❌ No routes found for haul {target_haul} in dictionary")
+                return ncs_data
+                
+            target_route_codes = target_routes['route'].tolist()
+            self.logger.info(f"📊 Found {len(target_route_codes)} routes for {target_haul}")
+            
+            # 3. Extraer códigos de aeropuerto de las rutas (MAD-BCN → MAD, BCN)
+            airport_codes = set()
+            for route in target_route_codes:
+                if '-' in route:
+                    origin, dest = route.split('-', 1)
+                    airport_codes.add(origin.strip().upper())
+                    airport_codes.add(dest.strip().upper())
+            
+            if not airport_codes:
+                self.logger.warning(f"❌ No airport codes extracted from {target_haul} routes")
+                return ncs_data
+                
+            self.logger.info(f"✈️ Extracted {len(airport_codes)} airport codes for {target_haul}: {sorted(list(airport_codes))[:10]}...")
+            
+            # 4. Crear patrón regex con códigos reales del diccionario
+            # Usar \b para word boundaries para evitar falsos positivos
+            pattern = '|'.join([f'\\b{code}\\b' for code in airport_codes])
+            
+            # 5. Filtrar incidentes que contengan estos códigos de aeropuerto
+            mask = ncs_data[incident_col].str.contains(pattern, na=False, regex=True, case=False)
+            filtered_data = ncs_data[mask]
+            
+            # 6. Log resultados
+            if len(filtered_data) > 0:
+                reduction_rate = (1 - len(filtered_data) / len(ncs_data)) * 100
+                self.logger.info(f"✅ {target_haul} dictionary filtering: {len(filtered_data)}/{len(ncs_data)} incidents ({reduction_rate:.1f}% reduction)")
+                return filtered_data
+            else:
+                self.logger.warning(f"⚠️ No incidents found for {target_haul} airports, returning original data")
+                return ncs_data
+                
+        except Exception as e:
+            self.logger.error(f"❌ Error filtering with routes dictionary: {e}")
+            # Fallback: devolver datos originales para que el análisis continúe
+            return ncs_data
 
     def _combine_and_summarize_ncs_comments(self, current_data: pd.DataFrame, comparison_data: pd.DataFrame, 
                                           current_start: str, current_end: str, 
