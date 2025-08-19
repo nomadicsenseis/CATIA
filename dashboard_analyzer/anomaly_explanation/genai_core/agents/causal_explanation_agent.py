@@ -4078,7 +4078,20 @@ class CausalExplanationAgent:
         }
         
         for route, data in route_matrix.items():
-            total_delta = data['total_delta']['delta']
+            # Safety check for data structure
+            if not isinstance(data, dict) or 'total_delta' not in data:
+                self.logger.warning(f"⚠️ Invalid route data structure for {route}: {data}")
+                continue
+                
+            total_delta_obj = data['total_delta']
+            if not isinstance(total_delta_obj, dict) or 'delta' not in total_delta_obj:
+                self.logger.warning(f"⚠️ Invalid total_delta structure for {route}: {total_delta_obj}")
+                continue
+                
+            total_delta = total_delta_obj['delta']
+            if total_delta is None:
+                self.logger.warning(f"⚠️ None delta value for route {route}")
+                continue
             
             if total_delta < -5:  # Major improvement
                 patterns['major_improvements'].append({

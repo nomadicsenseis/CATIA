@@ -808,7 +808,7 @@ class PBIDataCollector:
         except Exception as e:
             print(f"         ❌ Error collecting routes data: {str(e)}")
             return pd.DataFrame()
-    
+
     def _get_explanatory_drivers_range_query(self, start_date: datetime, end_date: datetime, comparison_filter: str = "vs L7d", comparison_start_date: datetime = None, comparison_end_date: datetime = None, cabins: List[str] = None, companies: List[str] = None, hauls: List[str] = None) -> str:
         """Build explanatory drivers DAX query for the given date range and comparison filter."""
         try:
@@ -849,7 +849,7 @@ class PBIDataCollector:
                 query = query.replace("\n    VAR __DS0Core =", selected_period_block + "\n    VAR __DS0Core =")
                 # Add the filter table in SUMMARIZECOLUMNS argument list right after __DS0FilterTable7,
                 query = query.replace("__DS0FilterTable7,\n", "__DS0FilterTable7,\n            __DS0FilterTableSelPeriod,\n")
-            
+        
             return query
             
         except Exception as e:
