@@ -5,11 +5,26 @@ Procesa comentarios de texto libre para extraer insights cualitativos sobre NPS
 
 import pandas as pd
 import re
-from typing import Dict, List, Tuple, Optional, Any
+import os
+import jwt
+from typing import Dict, List, Tuple, Optional, Any, Union
 import logging
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
+
+# Import TokenManager for automatic token refresh
+try:
+    from .token_manager import TokenManager
+    TOKEN_MANAGER_AVAILABLE = True
+except ImportError:
+    try:
+        # Fallback for direct execution
+        from token_manager import TokenManager
+        TOKEN_MANAGER_AVAILABLE = True
+    except ImportError as e:
+        logger.warning(f"TokenManager not available: {e}")
+        TOKEN_MANAGER_AVAILABLE = False
 
 
 class ChatbotVerbatimsCollector:
@@ -17,14 +32,41 @@ class ChatbotVerbatimsCollector:
     Recopilador y analizador de verbatims de chatbot y otras fuentes de feedback
     """
     
-    def __init__(self, pbi_collector):
+    def __init__(self, pbi_collector=None, token: str = None, frontend_reload_callback=None, auto_refresh_tokens=True):
         """
         Initialize the Chatbot Verbatims Collector
         
         Args:
-            pbi_collector: Power BI data collector instance
+            pbi_collector: Power BI data collector instance (fallback mode)
+            token: JWT token for user authentication (from frontend)
+            frontend_reload_callback: Callback function to trigger frontend reload when token expires
+            auto_refresh_tokens: Enable automatic token refresh using Chrome automation
         """
         self.pbi_collector = pbi_collector
+        self.token = token
+        self.frontend_reload_callback = frontend_reload_callback
+        self.auto_refresh_tokens = auto_refresh_tokens
+        
+        # Token management
+        self.token_file = "dashboard_analyzer/temp_aws_credentials.env"
+        self.token_refresh_threshold = 300  # 5 minutes before expiry
+        self.token_expired = False
+        
+        # Initialize TokenManager if available and auto_refresh is enabled
+        self.token_manager = None
+        if TOKEN_MANAGER_AVAILABLE and self.auto_refresh_tokens:
+            try:
+                self.token_manager = TokenManager()
+                logger.info("✅ TokenManager initialized - automatic token refresh enabled")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to initialize TokenManager: {e}")
+        
+        # Validate token on initialization
+        if self.token:
+            self._validate_token()
+        elif self.token_manager:
+            # Try to get token from TokenManager
+            self.token = self.token_manager.get_current_token()
         
         # Diccionarios para análisis temático
         self.route_patterns = [
@@ -72,6 +114,210 @@ class ChatbotVerbatimsCollector:
             'molesto', 'furioso', 'decepcionado', 'nunca más', 'awful'
         ]
     
+    def _validate_token(self) -> bool:
+        """
+        Validates the current JWT token and checks if it's expired
+        Returns True if token is valid, False if expired
+        """
+        try:
+            if not self.token:
+                return False
+            
+            # Decode JWT to check expiry (without signature verification)
+            decoded = jwt.decode(self.token, options={"verify_signature": False})
+            exp_timestamp = decoded.get('exp')
+            
+            if not exp_timestamp:
+                logger.warning("Token has no expiration time")
+                return False
+            
+            # Check if token is expired
+            current_time = datetime.utcnow().timestamp()
+            time_until_expiry = exp_timestamp - current_time
+            
+            if time_until_expiry <= 0:
+                logger.warning("Token has expired")
+                self.token_expired = True
+                self._handle_token_expiration()
+                return False
+            
+            # Check if token expires soon
+            if time_until_expiry <= self.token_refresh_threshold:
+                logger.warning(f"Token expires in {time_until_expiry:.0f} seconds")
+                self._handle_token_expiration()
+                return False
+            
+            self.token_expired = False
+            return True
+            
+        except jwt.ExpiredSignatureError:
+            logger.warning("Token has expired (signature error)")
+            self.token_expired = True
+            self._handle_token_expiration()
+            return False
+        except Exception as e:
+            logger.error(f"Error validating token: {e}")
+            return False
+    
+    def _handle_token_expiration(self):
+        """
+        Handles token expiration by attempting automatic refresh or manual methods
+        """
+        try:
+            # First, try automatic token refresh if TokenManager is available
+            if self.token_manager:
+                logger.info("🔄 Attempting automatic token refresh...")
+                if self.token_manager.ensure_valid_token():
+                    self.token = self.token_manager.get_current_token()
+                    self.token_expired = False
+                    logger.info("✅ Token automatically refreshed successfully")
+                    return
+                else:
+                    logger.warning("⚠️ Automatic token refresh failed, trying manual methods...")
+            
+            # Fallback: try to reload token from file
+            if self._reload_token_from_file():
+                logger.info("✅ Token reloaded from file successfully")
+                return
+            
+            # If all automatic methods fail, trigger frontend reload callback
+            if self.frontend_reload_callback:
+                logger.warning("🔄 Token expired, triggering frontend reload...")
+                self.frontend_reload_callback()
+            else:
+                logger.error("❌ Token expired and no refresh methods available")
+                
+        except Exception as e:
+            logger.error(f"Error handling token expiration: {e}")
+    
+    def _reload_token_from_file(self) -> bool:
+        """
+        Attempts to reload the token from the credentials file
+        Returns True if successful, False otherwise
+        """
+        try:
+            if not os.path.exists(self.token_file):
+                logger.warning(f"Token file {self.token_file} not found")
+                return False
+            
+            # Read fresh token from file
+            with open(self.token_file, 'r') as f:
+                for line in f:
+                    if line.startswith('chatbot_jwt_token ='):
+                        new_token = line.split('=', 1)[1].strip().strip('"\'')
+                        
+                        # Validate new token
+                        if self._is_valid_token(new_token):
+                            self.token = new_token
+                            self.token_expired = False
+                            logger.info("✅ Token reloaded from file")
+                            return True
+                        else:
+                            logger.warning("New token from file is also expired")
+                            return False
+            
+            logger.warning("No valid token found in credentials file")
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error reloading token from file: {e}")
+            return False
+    
+    def _is_valid_token(self, token: str) -> bool:
+        """
+        Checks if a token is valid without setting it as the current token
+        """
+        try:
+            if not token:
+                return False
+            
+            decoded = jwt.decode(token, options={"verify_signature": False})
+            exp_timestamp = decoded.get('exp')
+            
+            if not exp_timestamp:
+                return False
+            
+            current_time = datetime.utcnow().timestamp()
+            return exp_timestamp > current_time
+            
+        except Exception:
+            return False
+    
+    def ensure_valid_token(self) -> bool:
+        """
+        Public method to ensure token is valid before operations
+        Returns True if token is valid, False if expired
+        """
+        return self._validate_token()
+    
+    def get_token_status(self) -> Dict[str, Any]:
+        """
+        Returns current token status information
+        """
+        try:
+            if not self.token:
+                return {
+                    'status': 'no_token',
+                    'message': 'No token available',
+                    'expires_in': None,
+                    'expired': True
+                }
+            
+            decoded = jwt.decode(self.token, options={"verify_signature": False})
+            exp_timestamp = decoded.get('exp')
+            
+            if not exp_timestamp:
+                return {
+                    'status': 'invalid_token',
+                    'message': 'Token has no expiration time',
+                    'expires_in': None,
+                    'expired': True
+                }
+            
+            current_time = datetime.utcnow().timestamp()
+            time_until_expiry = exp_timestamp - current_time
+            
+            if time_until_expiry <= 0:
+                return {
+                    'status': 'expired',
+                    'message': 'Token has expired',
+                    'expires_in': 0,
+                    'expired': True
+                }
+            
+            return {
+                'status': 'valid',
+                'message': 'Token is valid',
+                'expires_in': int(time_until_expiry),
+                'expired': False,
+                'expires_at': datetime.fromtimestamp(exp_timestamp).isoformat()
+            }
+            
+        except Exception as e:
+            return {
+                'status': 'error',
+                'message': f'Error checking token: {str(e)}',
+                'expires_in': None,
+                'expired': True
+            }
+    
+    def _make_api_request(self, endpoint: str, params: Dict = None) -> Optional[Dict]:
+        """
+        Placeholder method for API requests - not used in current implementation
+        This method exists for future API integration if needed
+        """
+        logger.warning("API requests not implemented - using PBI collector fallback")
+        return None
+    
+    def _collect_from_chatbot_api(self, date_range: Tuple[str, str], node_path: str, 
+                                 filters: Optional[Dict] = None) -> pd.DataFrame:
+        """
+        Placeholder method for chatbot API collection - not used in current implementation
+        This method exists for future API integration if needed
+        """
+        logger.warning("Chatbot API collection not implemented - using PBI collector fallback")
+        return pd.DataFrame()
+    
     def collect_verbatims_for_period(self, date_range: Tuple[str, str], node_path: str,
                                    filters: Optional[Dict] = None) -> pd.DataFrame:
         """
@@ -86,29 +332,42 @@ class ChatbotVerbatimsCollector:
             DataFrame con verbatims procesados
         """
         try:
-            # Obtener verbatims base del Power BI
-            from datetime import datetime
-            start_dt = datetime.strptime(date_range[0], '%Y-%m-%d')
-            end_dt = datetime.strptime(date_range[1], '%Y-%m-%d')
+            # Intentar obtener verbatims de la API del chatbot primero
+            if self.ensure_valid_token(): # Use ensure_valid_token here
+                verbatims_data = self._collect_from_chatbot_api(date_range, node_path, filters)
+                if not verbatims_data.empty:
+                    logger.info(f"✅ Collected {len(verbatims_data)} verbatims from chatbot API")
+                    return verbatims_data
+                else:
+                    logger.warning("Chatbot API returned no data, falling back to PBI collector")
             
-            verbatims_data = self.pbi_collector.collect_verbatims_for_date_range(
-                node_path=node_path,
-                start_date=start_dt,
-                end_date=end_dt
-            )
-            
-            if verbatims_data.empty:
-                logger.warning(f"No verbatims data found for period {date_range}")
+            # Fallback al Power BI collector
+            if self.pbi_collector:
+                from datetime import datetime
+                start_dt = datetime.strptime(date_range[0], '%Y-%m-%d')
+                end_dt = datetime.strptime(date_range[1], '%Y-%m-%d')
+                
+                verbatims_data = self.pbi_collector.collect_verbatims_for_date_range(
+                    node_path=node_path,
+                    start_date=start_dt,
+                    end_date=end_dt
+                )
+                
+                if verbatims_data.empty:
+                    logger.warning(f"No verbatims data found for period {date_range}")
+                    return pd.DataFrame()
+                
+                # Procesar verbatims
+                processed_verbatims = self._process_verbatims(verbatims_data)
+                
+                # Aplicar filtros si se especifican
+                if filters:
+                    processed_verbatims = self._apply_filters(processed_verbatims, filters)
+                
+                return processed_verbatims
+            else:
+                logger.error("No data source available (neither chatbot API nor PBI collector)")
                 return pd.DataFrame()
-            
-            # Procesar verbatims
-            processed_verbatims = self._process_verbatims(verbatims_data)
-            
-            # Aplicar filtros si se especifican
-            if filters:
-                processed_verbatims = self._apply_filters(processed_verbatims, filters)
-            
-            return processed_verbatims
             
         except Exception as e:
             logger.error(f"Error collecting verbatims for period {date_range}: {e}")
@@ -490,11 +749,27 @@ class ChatbotVerbatimsCollector:
         Returns (success: bool, message: str)
         """
         try:
-            # For now, we'll test by checking if PBI collector is available
-            if hasattr(self, 'pbi_collector') and self.pbi_collector:
-                return True, "✅ Verbatims collector ready (using PBI fallback)"
+            # Test automatic token refresh capability first
+            if self.token_manager:
+                try:
+                    if self.token_manager.ensure_valid_token():
+                        token_info = self.token_manager.get_token_info()
+                        return True, f"✅ Automatic token management active - expires in {token_info['expires_in']}s"
+                    else:
+                        return False, "❌ Automatic token refresh failed"
+                except Exception as e:
+                    logger.warning(f"TokenManager test failed: {e}")
+            
+            # Test manual token validation
+            if self.ensure_valid_token():
+                return True, "✅ Token is valid (manual mode)"
             else:
-                return False, "❌ PBI collector not available"
+                # Fallback to PBI collector test
+                if hasattr(self, 'pbi_collector') and self.pbi_collector:
+                    return True, "✅ Verbatims collector ready (using PBI fallback)"
+                else:
+                    return False, "❌ No data source available (neither valid token nor PBI collector)"
+                
         except Exception as e:
             return False, f"❌ Connection test failed: {str(e)}"
 

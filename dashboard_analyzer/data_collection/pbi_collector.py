@@ -9,11 +9,15 @@ from dotenv import load_dotenv
 import asyncio
 import aiohttp
 import re # Added for regex replacement
+import logging
 
 class PBIDataCollector:
     """Collects data from Power BI API for each node in the NPS tree hierarchy"""
     
     def __init__(self):
+        # Setup logging
+        self.logger = logging.getLogger(__name__)
+        
         # Load environment variables from .devcontainer/.env
         dotenv_path = Path(__file__).parent.parent.parent / '.devcontainer' / '.env'
         load_dotenv(dotenv_path)
