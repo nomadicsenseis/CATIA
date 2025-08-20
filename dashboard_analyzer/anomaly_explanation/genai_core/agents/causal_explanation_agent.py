@@ -352,18 +352,36 @@ class CausalExplanationAgent:
             self.config['helper_prompts'].update(custom_prompts['helper_prompts'])
     
     def _init_chatbot_collector(self):
-        """Initialize chatbot collector if token is available"""
+        """Initialize chatbot collector with automatic token refresh"""
         try:
-            token = self._load_chatbot_token()
-            if token:
-                chatbot_base_url = os.getenv("CHATBOT_BASE_URL", "https://b8fktdca38.execute-api.eu-west-1.amazonaws.com/api/transformation/api/nps-chatbot")
-                return ChatbotVerbatimsCollector(token=token, base_url=chatbot_base_url)
-            else:
-                self.logger.warning("No chatbot token found - chatbot collector disabled")
-                return None
+            # Initialize with automatic token refresh enabled
+            self.logger.info("🔄 Initializing ChatbotVerbatimsCollector with automatic token refresh...")
+            return ChatbotVerbatimsCollector(
+                auto_refresh_tokens=True,  # Enable automatic token refresh
+                pbi_collector=self.pbi_collector  # Provide PBI collector as fallback
+            )
         except Exception as e:
-            self.logger.warning(f"Failed to initialize chatbot collector: {e}")
-            return None
+            self.logger.warning(f"Failed to initialize chatbot collector with auto-refresh: {e}")
+            
+            # Fallback to manual mode if auto-refresh fails
+            try:
+                self.logger.info("🔄 Falling back to manual mode...")
+                token = self._load_chatbot_token()
+                if token:
+                    return ChatbotVerbatimsCollector(
+                        token=token,
+                        auto_refresh_tokens=False,
+                        pbi_collector=self.pbi_collector
+                    )
+                else:
+                    self.logger.warning("No chatbot token found - using PBI collector only")
+                    return ChatbotVerbatimsCollector(
+                        pbi_collector=self.pbi_collector,
+                        auto_refresh_tokens=False
+                    )
+            except Exception as e2:
+                self.logger.error(f"Failed to initialize chatbot collector in any mode: {e2}")
+                return None
     
     def _load_chatbot_token(self) -> Optional[str]:
         """Load chatbot token from environment or file"""
@@ -2083,8 +2101,10 @@ class CausalExplanationAgent:
 
     async def _conduct_chatbot_conversation(self, verbatim_type: str, node_path: str, start_date: str, end_date: str) -> List[Dict]:
         """
-        Conduct a strategic multi-question conversation with the chatbot to explore customer feedback comprehensively.
-        Uses cross-validation approach to correlate with explanatory drivers and operational data.
+        Conduct a focused 2-question conversation with the chatbot to identify problematic routes and representative comments.
+        
+        Question 1: Which routes have the most negative comments?
+        Question 2: What are the most representative comments for each of those routes?
         """
         conversation = []
         
@@ -2093,16 +2113,16 @@ class CausalExplanationAgent:
                 self.logger.error("❌ Chatbot collector no disponible para conversación")
                 return []
             
-            # ROUND 1: Open exploration of main negative topics (no bias)
-            query_1 = self._generate_open_exploration_query(node_path)
-            self.logger.info(f"💬 PREGUNTA 1 (Exploración abierta): '{query_1}'")
+            # PREGUNTA 1: Rutas con comentarios más negativos
+            query_1 = self._generate_negative_routes_query(node_path)
+            self.logger.info(f"💬 PREGUNTA 1 (Rutas más negativas): '{query_1}'")
             
             df_1 = self.chatbot_collector.get_verbatims_data(
                 start_date=start_date, end_date=end_date, node_path=node_path,
-                verbatim_type="general", intelligent_query=query_1
+                verbatim_type="routes_negative", intelligent_query=query_1
             )
             
-            response_1 = self._analyze_single_chatbot_response(df_1, "exploración_abierta")
+            response_1 = self._analyze_single_chatbot_response(df_1, "rutas_negativas")
             self.logger.info(f"🤖 RESPUESTA 1: {response_1}")
             
             conversation.append({
@@ -2110,89 +2130,28 @@ class CausalExplanationAgent:
                 "question": query_1,
                 "response": response_1,
                 "data_points": len(df_1),
-                "purpose": "exploración_abierta"
+                "purpose": "rutas_negativas"
             })
             
-            # 🔧 DEBUG: Commented out rounds 2-5 for faster debugging
-            # # ROUND 2: Cross-validation with explanatory drivers
-            # query_2 = self._generate_cross_validation_query(node_path, response_1)
-            # self.logger.info(f"💬 PREGUNTA 2 (Validación cruzada): '{query_2}'")
-            # 
-            # df_2 = self.chatbot_collector.get_verbatims_data(
-            #     start_date=start_date, end_date=end_date, node_path=node_path,
-            #     verbatim_type="specific", intelligent_query=query_2
-            # )
-            # 
-            # response_2 = self._analyze_single_chatbot_response(df_2, "validación_cruzada")
-            # self.logger.info(f"🤖 RESPUESTA 2: {response_2}")
-            # 
-            # conversation.append({
-            #     "round": 2,
-            #     "question": query_2,
-            #     "response": response_2,
-            #     "data_points": len(df_2),
-            #     "purpose": "validación_cruzada"
-            # })
-            # 
-            # # ROUND 3: Operational correlation check
-            # query_3 = self._generate_operational_correlation_query(node_path, response_1, response_2)
-            # self.logger.info(f"💬 PREGUNTA 3 (Correlación operacional): '{query_3}'")
-            # 
-            # df_3 = self.chatbot_collector.get_verbatims_data(
-            #     start_date=start_date, end_date=end_date, node_path=node_path,
-            #     verbatim_type="operational", intelligent_query=query_3
-            # )
-            # 
-            # response_3 = self._analyze_single_chatbot_response(df_3, "correlación_operacional")
-            # self.logger.info(f"🤖 RESPUESTA 3: {response_3}")
-            # 
-            # conversation.append({
-            #     "round": 3,
-            #     "question": query_3,
-            #     "response": response_3,
-            #     "data_points": len(df_3),
-            #     "purpose": "correlación_operacional"
-            # })
-            # 
-            # # ROUND 4: Route-specific exploration (if causes identified)
-            # query_4 = self._generate_route_specific_query(node_path, response_1, response_2, response_3)
-            # self.logger.info(f"💬 PREGUNTA 4 (Rutas específicas): '{query_4}'")
-            # 
-            # df_4 = self.chatbot_collector.get_verbatims_data(
-            #     start_date=start_date, end_date=end_date, node_path=node_path,
-            #     verbatim_type="routes", intelligent_query=query_4
-            # )
-            # 
-            # response_4 = self._analyze_single_chatbot_response(df_4, "rutas_específicas")
-            # self.logger.info(f"🤖 RESPUESTA 4: {response_4}")
-            # 
-            # conversation.append({
-            #     "round": 4,
-            #     "question": query_4,
-            #     "response": response_4,
-            #     "data_points": len(df_4),
-            #     "purpose": "rutas_específicas"
-            # })
-            # 
-            # # ROUND 5: Synthesis and additional hidden causes
-            # query_5 = self._generate_synthesis_additional_causes_query(node_path, response_1, response_2, response_3, response_4)
-            # self.logger.info(f"💬 PREGUNTA 5 (Síntesis y causas ocultas): '{query_5}'")
-            # 
-            # df_5 = self.chatbot_collector.get_verbatims_data(
-            #     start_date=start_date, end_date=end_date, node_path=node_path,
-            #     verbatim_type="synthesis", intelligent_query=query_5
-            # )
-            # 
-            # response_5 = self._analyze_single_chatbot_response(df_5, "síntesis_causas_ocultas")
-            # self.logger.info(f"🤖 RESPUESTA 5: {response_5}")
-            # 
-            # conversation.append({
-            #     "round": 5,
-            #     "question": query_5,
-            #     "response": response_5,
-            #     "data_points": len(df_5),
-            #     "purpose": "síntesis_causas_ocultas"
-            # })
+            # PREGUNTA 2: Comentarios representativos de cada ruta
+            query_2 = self._generate_representative_comments_query(node_path, response_1)
+            self.logger.info(f"💬 PREGUNTA 2 (Comentarios representativos): '{query_2}'")
+            
+            df_2 = self.chatbot_collector.get_verbatims_data(
+                start_date=start_date, end_date=end_date, node_path=node_path,
+                verbatim_type="representative_comments", intelligent_query=query_2
+            )
+            
+            response_2 = self._analyze_single_chatbot_response(df_2, "comentarios_representativos")
+            self.logger.info(f"🤖 RESPUESTA 2: {response_2}")
+            
+            conversation.append({
+                "round": 2,
+                "question": query_2,
+                "response": response_2,
+                "data_points": len(df_2),
+                "purpose": "comentarios_representativos"
+            })
             
             return conversation
             
@@ -2200,32 +2159,13 @@ class CausalExplanationAgent:
             self.logger.error(f"❌ Error en conversación chatbot: {e}")
             return []
     
-    def _generate_open_exploration_query(self, node_path: str) -> str:
-        """Generate the first query for open exploration of customer feedback without bias."""
-        return f"¿Cuáles son los principales temas o problemas negativos que los clientes están reportando sobre {node_path} durante este período? No me limites a ningún touchpoint específico - muéstrame los problemas más frecuentes y significativos mencionados por los clientes, independientemente de si son operacionales, de servicio, o de producto."
+    def _generate_negative_routes_query(self, node_path: str) -> str:
+        """Generate query to identify routes with the most negative comments."""
+        return f"¿Cuáles son las rutas específicas (origen-destino) dentro de {node_path} que tienen los comentarios más negativos durante este período? Ordénalas por negatividad y frecuencia de quejas. Incluye los códigos de aeropuerto (ej: MAD-BCN, LHR-MAD) y el número aproximado de comentarios negativos por ruta."
     
-    def _generate_cross_validation_query(self, node_path: str, previous_response: str) -> str:
-        """Generate a query to cross-validate findings with explanatory drivers."""
-        explanatory_data = str(self.collected_data.get('explanatory_drivers', ''))
-        
-        # Extract main touchpoints from explanatory drivers
-        main_touchpoints = []
-        if 'boarding' in explanatory_data.lower():
-            main_touchpoints.append("Boarding")
-        if 'punctuality' in explanatory_data.lower():
-            main_touchpoints.append("Punctuality")
-        if 'arrivals' in explanatory_data.lower():
-            main_touchpoints.append("Arrivals experience")
-        if 'crew' in explanatory_data.lower():
-            main_touchpoints.append("Crew")
-        if 'food' in explanatory_data.lower():
-            main_touchpoints.append("Food")
-        if 'lounge' in explanatory_data.lower():
-            main_touchpoints.append("Lounge")
-        
-        touchpoints_text = ", ".join(main_touchpoints) if main_touchpoints else "los aspectos identificados como problemáticos"
-        
-        return f"Los análisis estadísticos muestran que los touchpoints más correlacionados con la caída del NPS en {node_path} son: {touchpoints_text}. ¿Confirman los verbatims de clientes estos hallazgos? ¿Están los clientes reportando problemas específicamente en estas áreas, y cómo describen estos problemas en sus propias palabras?"
+    def _generate_representative_comments_query(self, node_path: str, previous_response: str) -> str:
+        """Generate query to get representative comments for each problematic route."""
+        return f"Para cada una de las rutas más problemáticas identificadas en la respuesta anterior, ¿puedes mostrarme 2-3 comentarios representativos reales de clientes que ejemplifiquen los problemas específicos de cada ruta? Organiza los comentarios por ruta (ej: MAD-BCN: 'comentario1', 'comentario2'; LHR-MAD: 'comentario1', 'comentario2') y asegúrate de que sean verbatims auténticos que reflejen los problemas más comunes."
     
     def _generate_operational_correlation_query(self, node_path: str, response_1: str, response_2: str) -> str:
         """Generate a query to correlate customer feedback with operational data."""
