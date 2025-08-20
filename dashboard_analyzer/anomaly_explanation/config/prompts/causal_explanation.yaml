@@ -53,10 +53,10 @@ comparative_prompts:
 
     **Mapa de Flujo de Trabajo** (se deduce del primer `explanatory_drivers_tool`):
     ```
-    operative: [operative_data_tool, ncs_tool, verbatims_tool]
-    product:   [verbatims_tool, ncs_tool, routes_tool] 
-    mixed:     [operative_data_tool, verbatims_tool, ncs_tool]
-    fallback:  [verbatims_tool, operative_data_tool, ncs_tool]
+    operative: [operative_data_tool, ncs_tool, verbatims_tool, routes_tool, customer_profile_tool]
+    product:   [verbatims_tool(1ª), ncs_tool, verbatims_tool(2ª), routes_tool, customer_profile_tool] 
+    mixed:     [RAMA_OPERATIVA: operative+ncs+verbatims+routes+profiles | RAMA_PRODUCTO: verbatims(1ª)+ncs+verbatims(2ª)+routes+profiles]
+    fallback:  [verbatims_tool, operative_data_tool, ncs_tool, routes_tool, customer_profile_tool]
     ```
 
   input_template: |
@@ -531,6 +531,11 @@ tools_prompts:
 
       **ENFOQUE**: Usa COMPARACIÓN TEMPORAL como validación directa de los explanatory drivers SHAP.
 
+      **📈 SIGUIENTE PASO OBLIGATORIO**: 
+      Ejecuta `verbatims_tool` para validar si los incidentes NCS identificados se reflejan en las quejas de clientes y confirmar correlación entre rutas afectadas por incidentes vs rutas con peor CSAT.
+
+      **🎯 OBJETIVO**: Confirmar que los incidentes operacionales realmente impactaron la percepción del cliente a través de sus verbatims.
+
     single: |
       🎯 ANÁLISIS COMPLETADO - Inteligencia Operacional NCS del Período
 
@@ -582,11 +587,12 @@ tools_prompts:
 
       **⚠️ ENFOQUE EN TENDENCIA**: El NPS diff vs período anterior es MÁS IMPORTANTE que el valor absoluto - indica deterioro/mejora reciente.
 
-      **PRÓXIMO PASO ESTRATÉGICO**:
-      📋 **EJECUTA** customer_profile_tool para identificar perfiles reactivos filtrados por estas rutas
-      📋 **EJECUTA** verbatims_tool para validar causa tangible con foco en estas rutas específicas
+      **📈 SIGUIENTE PASO OBLIGATORIO**: 
+      Ejecuta `customer_profile_tool` para identificar qué perfiles de clientes son más reactivos a los problemas identificados en estas rutas específicas.
 
-      **ENFOQUE ANALÍTICO**: Las rutas identificadas aquí son la base para filtrar análisis posteriores.
+      **🎯 OBJETIVO**: Completar la triangulación Causa → Rutas → Perfiles para generar la hipótesis causal completa.
+
+      **ENFOQUE ANALÍTICO**: Las rutas identificadas aquí validan la correlación entre evidencia operativa/NCS y impacto geográfico real en satisfacción.
 
     single: |
       🎯 ANÁLISIS COMPLETADO - Inteligencia de Rutas del Período
@@ -599,24 +605,38 @@ tools_prompts:
 
       **⚠️ ENFOQUE EN VALORES ABSOLUTOS**: El NPS absoluto del período es el indicador clave - identifica rutas problemáticas.
 
-      **PRÓXIMO PASO ESTRATÉGICO**:
-      📋 **EJECUTA** customer_profile_tool para identificar perfiles reactivos filtrados por estas rutas
-      📋 **EJECUTA** verbatims_tool para validar causa tangible con foco en estas rutas específicas
+      **📈 SIGUIENTE PASO OBLIGATORIO**: 
+      Ejecuta `customer_profile_tool` para identificar qué perfiles de clientes fueron más afectados en estas rutas específicas durante el período.
 
-      **ENFOQUE ANALÍTICO**: Las rutas identificadas aquí son la base para entender qué pasó durante el período específico.
+      **🎯 OBJETIVO**: Completar la identificación de Causa → Rutas → Perfiles para el período específico.
+
+      **ENFOQUE ANALÍTICO**: Las rutas identificadas aquí son la base para entender el impacto geográfico específico durante el período analizado.
 
   verbatims_tool:
     comparative: |
-      🎯 **Objetivo 1** · Análisis Voz del Cliente con Comparación
+      🎯 **ANÁLISIS VOZ DEL CLIENTE** - Validación de Correlación Operativa
 
-      Comentarios de clientes analizados vs período de comparación. Validación sugerida:
+      **📋 FUNCIÓN ESPECÍFICA SEGÚN FLUJO:**
 
-      • **¿Confirman los drivers?** Busca coincidencias específicas con SHAP
-      • **¿Aportan detalles nuevos?** Causas no detectadas en SHAP
-      • **¿Hay cambios en temas?** Temas que aumentaron/disminuyeron vs período anterior
-      • **Actualizar hipótesis** con evidencia cualitativa
+      **FLUJO OPERATIVO** (después de ncs_tool):
+      • **Validar correlación**: ¿Los incidentes NCS se reflejan en quejas de clientes?
+      • **Comparar rutas**: ¿Las rutas afectadas por NCS coinciden con las de peor CSAT operativo?
+      • **Confirmar impacto**: ¿Los incidentes operacionales realmente afectaron la percepción?
 
-      🔍 **Próximo**: `ncs_tool` para correlación operacional o `customer_profile_tool` para segmentación
+      **FLUJO PRODUCTO** (primera ejecución):
+      • **Identificar incidentes específicos**: ¿Cuáles son los incidentes de producto más mencionados?
+      • **Rutas afectadas**: ¿En qué rutas específicas se concentran estos problemas de producto?
+      • **Detalles causales**: ¿Qué aspectos específicos del producto están fallando?
+
+      **🔍 PREGUNTAS IMPLEMENTADAS:**
+      1. **¿Cuáles son las rutas específicas (origen-destino) que tienen los comentarios más negativos?**
+      2. **¿Cuáles son los comentarios más representativos de cada una de esas rutas?**
+
+      **📈 SIGUIENTE PASO**: 
+      • **FLUJO OPERATIVO**: Ejecuta `routes_tool` para correlación final de rutas
+      • **FLUJO PRODUCTO**: Ejecuta `ncs_tool` para encontrar incidentes operacionales secundarios
+
+      **🎯 OBJETIVO**: Conectar la evidencia cualitativa (verbatims) con la evidencia cuantitativa (métricas/incidentes).
 
     single: |
       🎯 **Objetivo 1** · Análisis Voz del Cliente del Período
@@ -675,35 +695,39 @@ tools_prompts:
     Drivers apuntan a problemas de servicio/producto (tripulación, comida, confort).
 
     **Secuencia sugerida:**
-    1. `verbatims_tool` → comentarios específicos de producto
-    2. `ncs_tool` → incidentes operacionales que afectaron servicio
-    3. `routes_tool` → rutas con problemas de producto prevalentes
-    4. `customer_profile_tool` → perfiles reactivos a servicio
+    1. `verbatims_tool` (1ª ejecución) → identificar incidentes específicos de producto y rutas afectadas
+    2. `ncs_tool` → incidentes operacionales secundarios que afectaron servicio
+    3. `verbatims_tool` (2ª ejecución) → validar correlación entre rutas NCS vs rutas producto 
+    4. `routes_tool` → confirmar rutas con peor CSAT de drivers producto
+    5. `customer_profile_tool` → perfiles reactivos a servicio
 
   mixed: |
     🔀 **FLUJO MIXTO** detectado
 
       Drivers muestran **problemas operacionales Y de producto** simultáneamente.
 
-      **🎯 INVESTIGACIÓN COMPRENSIVA OBLIGATORIA:**
+      **🎯 ESTRATEGIA DE RAMAS INDEPENDIENTES:**
       
-      **FASE OPERACIONAL:**
-      1. `operative_data_tool` → **CRÍTICO**: Validar deterioro KPIs operativos (OTP, Load Factor, Misconex, Mishandling)
+      **RAMA OPERATIVA (Completa):**
+      1. `operative_data_tool` → KPIs operativos deteriorados  
+      2. `ncs_tool` → incidentes operacionales específicos
+      3. `verbatims_tool` → validar correlación operativa
+      4. `routes_tool` → rutas operativas afectadas
+      5. `customer_profile_tool` → perfiles reactivos a operación
+      → **HIPÓTESIS OPERATIVA**: Causa + Incidentes + Verbatims + Rutas + Perfiles
       
-      **FASE PRODUCTO/SERVICIO:**  
-      2. `verbatims_tool` → Validar problemas de servicio reportados por clientes
-      
-      **FASE CORRELACIÓN:**
-      3. `ncs_tool` → Encontrar cómo incidentes operacionales causaron problemas de servicio
-      
-      **FASE SEGMENTACIÓN:**
-      4. `routes_tool` → Identificar rutas donde CONVERGEN ambos tipos de problemas
-      5. `customer_profile_tool` → Perfiles reactivos a la **combinación** operativa-servicio
+      **RAMA PRODUCTO (Completa):**
+      1. `verbatims_tool` (1ª) → incidentes específicos de producto y rutas
+      2. `ncs_tool` → incidentes operacionales secundarios
+      3. `verbatims_tool` (2ª) → validar correlación producto
+      4. `routes_tool` → rutas con peor CSAT producto
+      5. `customer_profile_tool` → perfiles reactivos a producto  
+      → **HIPÓTESIS PRODUCTO**: Causa + Incidentes + Verbatims + Rutas + Perfiles
 
       **🚨 METODOLOGÍA MIXTA:**
-      • Los problemas operativos (retrasos, equipaje) **CAUSAN** problemas de servicio (experiencia degradada)
-      • Ambas herramientas (operative + verbatims) son **OBLIGATORIAS** para triangular evidencia
-      • NCS correlaciona cómo la operación **impactó** la percepción de servicio
+      • Cada rama se ejecuta **COMPLETAMENTE** por separado
+      • Al final: **DOS hipótesis causales independientes** con evidencia completa
+      • Ambas hipótesis explican diferentes aspectos de la anomalía NPS mixta
 
   fallback: |
     🔀 **FLUJO EXPLORATORIO**
