@@ -1,64 +1,27 @@
-EVALUATE
+DEFINE  
+    VAR __DS0FilterTable =
+        TREATAS({"Business", "Economy", "Premium EC"}, 'Cabin_Master'[Cabin_Show])
+ 
+    VAR __DS0FilterTable2 =
+        TREATAS({"IB","YW"}, 'Company_Master'[Company])
+ 
+    VAR __DS0FilterTable3 =
+        TREATAS({"SH","LH"}, 'Haul_Master'[Haul_Aggr])
+ 
+    VAR __DS0FilterTable4 =
+        FILTER(
+            KEEPFILTERS(VALUES('Date_Master'[Date])),
+            'Date_Master'[Date] =date(2025,05,12)
+        )
+ 
+    var __DS0Core= 
 ADDCOLUMNS(
-    SUMMARIZE(
-        FILTER(
-            'Verbatims_Data',
-            'Verbatims_Data'[Date] >= DATE(2024, 1, 1) &&
-            'Verbatims_Data'[Date] <= TODAY() &&
-            NOT(ISBLANK('Verbatims_Data'[Verbatim_Text])) &&
-            LEN('Verbatims_Data'[Verbatim_Text]) > 10
-        ),
-        'Verbatims_Data'[Date],
-        'Verbatims_Data'[Survey_ID],
-        'Verbatims_Data'[Route],
-        'Verbatims_Data'[Verbatim_Text],
-        'Verbatims_Data'[Verbatim_Type],
-        'Verbatims_Data'[Language],
-        'Verbatims_Data'[Segment_Level_1],
-        'Verbatims_Data'[Segment_Level_2],
-        'Verbatims_Data'[Segment_Level_3]
-    ),
-    "NPS_Score", CALCULATE(
-        MAX('NPS_Data'[NPS_Score]),
-        FILTER(
-            'NPS_Data',
-            'NPS_Data'[Survey_ID] = 'Verbatims_Data'[Survey_ID]
-        )
-    ),
-    "Sentiment_Score", CALCULATE(
-        AVERAGE('Verbatims_Data'[Sentiment_Score])
-    ),
-    "Sentiment_Category", 'Verbatims_Data'[Sentiment_Category],
-    "Word_Count", LEN('Verbatims_Data'[Verbatim_Text]) - LEN(SUBSTITUTE('Verbatims_Data'[Verbatim_Text], " ", "")) + 1,
-    "Theme_Baggage", 
-        IF(
-            SEARCH("equipaje", LOWER('Verbatims_Data'[Verbatim_Text]), 1, 0) > 0 ||
-            SEARCH("maleta", LOWER('Verbatims_Data'[Verbatim_Text]), 1, 0) > 0 ||
-            SEARCH("baggage", LOWER('Verbatims_Data'[Verbatim_Text]), 1, 0) > 0,
-            1, 0
-        ),
-    "Theme_Punctuality",
-        IF(
-            SEARCH("retraso", LOWER('Verbatims_Data'[Verbatim_Text]), 1, 0) > 0 ||
-            SEARCH("delay", LOWER('Verbatims_Data'[Verbatim_Text]), 1, 0) > 0 ||
-            SEARCH("puntual", LOWER('Verbatims_Data'[Verbatim_Text]), 1, 0) > 0,
-            1, 0
-        ),
-    "Theme_Service",
-        IF(
-            SEARCH("servicio", LOWER('Verbatims_Data'[Verbatim_Text]), 1, 0) > 0 ||
-            SEARCH("service", LOWER('Verbatims_Data'[Verbatim_Text]), 1, 0) > 0 ||
-            SEARCH("azafata", LOWER('Verbatims_Data'[Verbatim_Text]), 1, 0) > 0,
-            1, 0
-        ),
-    "Node_Path", 
-        IF(
-            ISBLANK('Verbatims_Data'[Segment_Level_2]),
-            'Verbatims_Data'[Segment_Level_1],
-            IF(
-                ISBLANK('Verbatims_Data'[Segment_Level_3]),
-                'Verbatims_Data'[Segment_Level_1] & "/" & 'Verbatims_Data'[Segment_Level_2],
-                'Verbatims_Data'[Segment_Level_1] & "/" & 'Verbatims_Data'[Segment_Level_2] & "/" & 'Verbatims_Data'[Segment_Level_3]
-            )
-        )
-) 
+    CALCULATETABLE(verbatims_sentiment,
+            __DS0FilterTable,
+            __DS0FilterTable2,
+            __DS0FilterTable3,
+            __DS0FilterTable4), "Verbatim", 
+CALCULATE(min(surveys_maritz[nps_all_t])))
+ 
+EVALUATE
+    __DS0Core 

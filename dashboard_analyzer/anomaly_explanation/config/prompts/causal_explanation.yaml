@@ -544,53 +544,53 @@ tools_prompts:
   operative_data_tool:
     comparative:
       operative: |
-        🎯 **ANÁLISIS OPERATIVO COMPLETADO** - KPIs con Comparación Inteligente
+      🎯 **ANÁLISIS OPERATIVO COMPLETADO** - KPIs con Comparación Inteligente
 
-        Has obtenido métricas operativas con **comparación alineada al modo de detección NPS** (vslast/mean/target).
+      Has obtenido métricas operativas con **comparación alineada al modo de detección NPS** (vslast/mean/target).
 
-        **⚠️ DISTINCIÓN CRÍTICA ENTRE PUNTUALIDAD REAL Y PERCEPCIÓN:**
-        • **OTP (On-Time Performance)**: Puntualidad REAL - común a nivel radio (LH/SH)
-        • **CSAT y SHAP Punctuality**: PERCEPCIÓN de puntualidad, viene de las respuestas de los clientes a la pregunta de puntualidad en la encuesta, por tanto es específica al grupo de clientes que seleccionamos en la agregación.
-        • **NUNCA confundir**: OTP no puede ser diferente entre Economy LH y Business LH (mismo radio)
+      **⚠️ DISTINCIÓN CRÍTICA ENTRE PUNTUALIDAD REAL Y PERCEPCIÓN:**
+      • **OTP (On-Time Performance)**: Puntualidad REAL - común a nivel radio (LH/SH)
+      • **CSAT y SHAP Punctuality**: PERCEPCIÓN de puntualidad, viene de las respuestas de los clientes a la pregunta de puntualidad en la encuesta, por tanto es específica al grupo de clientes que seleccionamos en la agregación.
+      • **NUNCA confundir**: OTP no puede ser diferente entre Economy LH y Business LH (mismo radio)
 
-        **📊 INTERPRETACIÓN DE CORRELACIÓN OPERATIVA-NPS:**
+      **📊 INTERPRETACIÓN DE CORRELACIÓN OPERATIVA-NPS:**
 
-        **MÉTRICAS DIRECTAMENTE PROPORCIONALES AL NPS** ✅:
-        • **OTP (On-Time Performance)** ↑ = NPS ↑ (mejor puntualidad = mejor experiencia)
+      **MÉTRICAS DIRECTAMENTE PROPORCIONALES AL NPS** ✅:
+      • **OTP (On-Time Performance)** ↑ = NPS ↑ (mejor puntualidad = mejor experiencia)
 
-        **MÉTRICAS INVERSAMENTE PROPORCIONALES AL NPS** ❌:
-        • **Load Factor** ↑ = NPS ↓ (más aglomeración = peor experiencia)
-        • **Misconex (Conexiones Perdidas)** ↑ = NPS ↓ (más problemas = peor experiencia)  
-        • **Mishandling (Equipaje)** ↑ = NPS ↓ (más mal manejo = peor experiencia)
+      **MÉTRICAS INVERSAMENTE PROPORCIONALES AL NPS** ❌:
+      • **Load Factor** ↑ = NPS ↓ (más aglomeración = peor experiencia)
+      • **Misconex (Conexiones Perdidas)** ↑ = NPS ↓ (más problemas = peor experiencia)  
+      • **Mishandling (Equipaje)** ↑ = NPS ↓ (más mal manejo = peor experiencia)
 
-        **🔍 ANÁLISIS CRÍTICO REQUERIDO:**
+      **🔍 ANÁLISIS CRÍTICO REQUERIDO:**
 
-        1. **CORRELACIÓN CON ANOMALÍA NPS**:
-           • ¿Las métricas que empeoraron EXPLICAN la anomalía negativa?
-           • ¿Las métricas que mejoraron EXPLICAN la anomalía positiva?
-           • ¿Hay métricas que CONTRADICEN la dirección de la anomalía?
+      1. **CORRELACIÓN CON ANOMALÍA NPS**:
+         • ¿Las métricas que empeoraron EXPLICAN la anomalía negativa?
+         • ¿Las métricas que mejoraron EXPLICAN la anomalía positiva?
+         • ¿Hay métricas que CONTRADICEN la dirección de la anomalía?
 
-        2. **MAGNITUD Y SIGNIFICANCIA**:
-           • ¿Los cambios son estadísticamente significativos?
-           • ¿La magnitud del cambio operativo justifica la magnitud de la anomalía NPS?
+      2. **MAGNITUD Y SIGNIFICANCIA**:
+         • ¿Los cambios son estadísticamente significativos?
+         • ¿La magnitud del cambio operativo justifica la magnitud de la anomalía NPS?
 
-        3. **HIPÓTESIS ESPECÍFICA**:
-           • ¿Qué métrica operativa específica es la **causa tangible** principal?
-           • ¿Es un problema de puntualidad, capacidad, o manejo de equipaje?
+      3. **HIPÓTESIS ESPECÍFICA**:
+         • ¿Qué métrica operativa específica es la **causa tangible** principal?
+         • ¿Es un problema de puntualidad, capacidad, o manejo de equipaje?
 
-        4. **CORRELACIÓN OTP vs SHAP Punctuality**:
-           • ¿El OTP real explica la percepción SHAP Punctuality?
-           • ¿Hay segmentos con OTP malo pero SHAP Punctuality bueno (o viceversa)?
+      4. **CORRELACIÓN OTP vs SHAP Punctuality**:
+         • ¿El OTP real explica la percepción SHAP Punctuality?
+         • ¿Hay segmentos con OTP malo pero SHAP Punctuality bueno (o viceversa)?
 
-        **🔄 MODO DE COMPARACIÓN UTILIZADO**:
-        • **VSLAST**: Período actual vs período inmediatamente anterior
-        • **MEAN**: Período actual vs promedio histórico
-        • **TARGET**: Período actual vs objetivos establecidos
+      **🔄 MODO DE COMPARACIÓN UTILIZADO**:
+      • **VSLAST**: Período actual vs período inmediatamente anterior
+      • **MEAN**: Período actual vs promedio histórico
+      • **TARGET**: Período actual vs objetivos establecidos
 
-        **📈 SIGUIENTE PASO OBLIGATORIO**: 
-        Ejecuta `ncs_tool` para validar si estos deterioros/mejoras operativos corresponden con incidentes operacionales específicos del mismo período.
+      **📈 SIGUIENTE PASO OBLIGATORIO**: 
+      Ejecuta `ncs_tool` para validar si estos deterioros/mejoras operativos corresponden con incidentes operacionales específicos del mismo período.
 
-        **🎯 OBJETIVO**: Confirmar que el deterioro operativo identificado tiene **evidencia concreta** en incidentes NCS temporalmente alineados.
+      **🎯 OBJETIVO**: Confirmar que el deterioro operativo identificado tiene **evidencia concreta** en incidentes NCS temporalmente alineados.
 
         **🔄 FLUJO OPERATIVO EN CURSO**:
         1. ✅ `explanatory_drivers_tool` → Drivers SHAP operacionales
@@ -730,43 +730,43 @@ tools_prompts:
   ncs_tool:
     comparative:
       operative: |
-        🎯 ANÁLISIS COMPLETADO - Inteligencia Operacional NCS con Comparación Temporal
+      🎯 ANÁLISIS COMPLETADO - Inteligencia Operacional NCS con Comparación Temporal
 
-        Has recopilado datos de incidentes operacionales con **comparación temporal actual vs período anterior**. Interpreta:
+      Has recopilado datos de incidentes operacionales con **comparación temporal actual vs período anterior**. Interpreta:
 
-        **DATOS ESTRUCTURADOS DISPONIBLES**:
-        - 📋 Categorías totales: Cuántos incidentes de cada tipo ocurrieron (actual vs anterior)
-        - 🛫 Rutas afectadas: Desglose específico por ruta con formato RUTA(C:X|D:Y|R:Z|O:W|L:V)
-        - 👥 Pasajeros impactados: Por clase (J/W/Y) y total
-        - ⏱️ Estadísticas de retrasos: Promedio, total de minutos, cantidad de vuelos
-        - 🔧 Motivos principales: Técnicas, operativas, meteorología, rotación, etc.
-        - 🔄 **COMPARACIÓN TEMPORAL**: Cambios vs período anterior (deltas, porcentajes)
+      **DATOS ESTRUCTURADOS DISPONIBLES**:
+      - 📋 Categorías totales: Cuántos incidentes de cada tipo ocurrieron (actual vs anterior)
+      - 🛫 Rutas afectadas: Desglose específico por ruta con formato RUTA(C:X|D:Y|R:Z|O:W|L:V)
+      - 👥 Pasajeros impactados: Por clase (J/W/Y) y total
+      - ⏱️ Estadísticas de retrasos: Promedio, total de minutos, cantidad de vuelos
+      - 🔧 Motivos principales: Técnicas, operativas, meteorología, rotación, etc.
+      - 🔄 **COMPARACIÓN TEMPORAL**: Cambios vs período anterior (deltas, porcentajes)
 
-        **INTERPRETACIÓN TEMPORAL CRÍTICA**:
-        🚨 **NUNCA interpretes incidentes en valores absolutos - SIEMPRE interpreta cambios temporales**
+      **INTERPRETACIÓN TEMPORAL CRÍTICA**:
+      🚨 **NUNCA interpretes incidentes en valores absolutos - SIEMPRE interpreta cambios temporales**
 
-        **VALIDACIÓN DE DRIVERS SHAP**:
-        - **SHAP POSITIVO** (ej: Punctuality +4.83):
-          ✅ **Buscar**: ¿Se REDUJERON cancelaciones/retrasos vs período anterior?
-          ✅ **Si SÍ**: "Mejora operativa explica SHAP positivo" 
-          ❌ **Si NO**: "Inconsistencia - investigar otros factores"
+      **VALIDACIÓN DE DRIVERS SHAP**:
+      - **SHAP POSITIVO** (ej: Punctuality +4.83):
+        ✅ **Buscar**: ¿Se REDUJERON cancelaciones/retrasos vs período anterior?
+        ✅ **Si SÍ**: "Mejora operativa explica SHAP positivo" 
+        ❌ **Si NO**: "Inconsistencia - investigar otros factores"
 
-        - **SHAP NEGATIVO** (ej: Punctuality -4.83):
-          ✅ **Buscar**: ¿Se AUMENTARON cancelaciones/retrasos vs período anterior?
-          ✅ **Si SÍ**: "Deterioro operativo explica SHAP negativo"
-          ❌ **Si NO**: "Inconsistencia - investigar otros factores"
+      - **SHAP NEGATIVO** (ej: Punctuality -4.83):
+        ✅ **Buscar**: ¿Se AUMENTARON cancelaciones/retrasos vs período anterior?
+        ✅ **Si SÍ**: "Deterioro operativo explica SHAP negativo"
+        ❌ **Si NO**: "Inconsistencia - investigar otros factores"
 
-        **CORRELACIÓN TEMPORAL ESPECÍFICA**:
-        - **Cancelaciones ↓** + Punctuality SHAP ↑ = Coherente (menos cancelaciones = mejor puntualidad)
-        - **Retrasos ↓** + Punctuality SHAP ↑ = Coherente (menos retrasos = mejor puntualidad)  
-        - **Limitaciones ↓** + Aircraft Interior SHAP ↑ = Coherente (menos problemas técnicos = mejor experiencia)
+      **CORRELACIÓN TEMPORAL ESPECÍFICA**:
+      - **Cancelaciones ↓** + Punctuality SHAP ↑ = Coherente (menos cancelaciones = mejor puntualidad)
+      - **Retrasos ↓** + Punctuality SHAP ↑ = Coherente (menos retrasos = mejor puntualidad)  
+      - **Limitaciones ↓** + Aircraft Interior SHAP ↑ = Coherente (menos problemas técnicos = mejor experiencia)
 
-        **GENERACIÓN DE HIPÓTESIS TEMPORAL**:
-        - **Si incidentes DISMINUYERON**: "Mejora operativa explica drivers SHAP positivos"
-        - **Si incidentes AUMENTARON**: "Deterioro operativo explica drivers SHAP negativos"
-        - **Si incidentes constantes pero SHAP cambió**: "Factores no operativos (producto/servicio)"
+      **GENERACIÓN DE HIPÓTESIS TEMPORAL**:
+      - **Si incidentes DISMINUYERON**: "Mejora operativa explica drivers SHAP positivos"
+      - **Si incidentes AUMENTARON**: "Deterioro operativo explica drivers SHAP negativos"
+      - **Si incidentes constantes pero SHAP cambió**: "Factores no operativos (producto/servicio)"
 
-        **ENFOQUE**: Usa COMPARACIÓN TEMPORAL como validación directa de los explanatory drivers SHAP.
+      **ENFOQUE**: Usa COMPARACIÓN TEMPORAL como validación directa de los explanatory drivers SHAP.
 
         **📈 SIGUIENTE PASO OBLIGATORIO**: 
         Ejecuta `verbatims_tool` para validar si los incidentes NCS identificados se reflejan en las quejas de clientes y confirmar correlación entre rutas afectadas por incidentes vs rutas con peor CSAT.

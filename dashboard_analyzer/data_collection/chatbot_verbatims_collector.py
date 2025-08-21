@@ -718,6 +718,7 @@ class ChatbotVerbatimsCollector:
         """
         Apply intelligent query filtering to verbatims data.
         Enhanced with specific handling for route-based queries and representative comments.
+        Adapted for the new verbatims_sentiment table structure.
         
         Args:
             df: DataFrame with verbatims data
@@ -729,6 +730,9 @@ class ChatbotVerbatimsCollector:
         try:
             if df.empty or not intelligent_query:
                 return df
+            
+            # Clean column names for verbatims_sentiment table
+            df = self._clean_verbatims_columns(df)
             
             # Normalize query for better matching
             query_lower = intelligent_query.lower()
@@ -751,38 +755,53 @@ class ChatbotVerbatimsCollector:
     def _filter_routes_negative_comments(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Filter and analyze routes with most negative comments.
+        Adapted for verbatims_sentiment table structure.
         Returns DataFrame with route analysis and negative sentiment focus.
         """
         try:
             if df.empty:
                 return df
                 
-            # Focus on negative sentiment
+            # For verbatims_sentiment table, we have different column names
             text_col = self._get_text_column(df)
+            sentiment_col = self._get_sentiment_column(df)
+            
             if not text_col:
+                logger.warning("No text column found for negative comments filtering")
                 return df
                 
-            # Filter for negative sentiment using keywords and sentiment score
+            # Filter for negative sentiment using multiple approaches
+            negative_mask = pd.Series([False] * len(df), index=df.index)
+            
+            # 1. Use sentiment column if available (verbatims_sentiment structure)
+            if sentiment_col:
+                if 'verbatim_global_sentiment' in df.columns:
+                    # Use the global sentiment column
+                    negative_mask = negative_mask | (df['verbatim_global_sentiment'].str.lower() == 'negative')
+                elif sentiment_col in df.columns:
+                    # Use the sentiment column
+                    negative_mask = negative_mask | (df[sentiment_col].str.lower() == 'negative')
+            
+            # 2. Use sentiment score if available
+            if 'sentiment_score' in df.columns:
+                # Sentiment scores typically range from -1 to 1, negatives are < 0
+                negative_mask = negative_mask | (df['sentiment_score'] < -0.2)
+            
+            # 3. Use keyword-based detection as fallback
             negative_keywords = [
                 'horrible', 'terrible', 'malo', 'pésimo', 'desastroso', 'awful',
                 'molesto', 'furioso', 'decepcionado', 'nunca más', 'worst',
                 'retraso', 'delay', 'cancelado', 'perdido', 'dañado', 'sucio',
-                'mal servicio', 'bad service', 'poor', 'disappointing'
+                'mal servicio', 'bad service', 'poor', 'disappointing', 'terrible',
+                'awful', 'horrible', 'bad', 'worst', 'disappointing', 'frustrated'
             ]
             
-            # Create negative sentiment mask
             negative_pattern = '|'.join(negative_keywords)
-            mask = df[text_col].str.lower().str.contains(negative_pattern, na=False, regex=True)
+            keyword_mask = df[text_col].str.lower().str.contains(negative_pattern, na=False, regex=True)
+            negative_mask = negative_mask | keyword_mask
             
-            # Also consider sentiment score if available
-            if 'sentiment_score' in df.columns:
-                # Sentiment scores typically range from -1 to 1, negatives are < 0
-                mask = mask | (df['sentiment_score'] < -0.2)
-            elif 'sentiment_category' in df.columns:
-                # If categorical sentiment available
-                mask = mask | (df['sentiment_category'].str.lower().isin(['negative', 'very negative', 'negativo']))
-            
-            negative_df = df[mask]
+            # Apply the negative filter
+            negative_df = df[negative_mask]
             
             # Extract and analyze routes
             negative_df = self._enhance_route_extraction(negative_df)
@@ -797,6 +816,7 @@ class ChatbotVerbatimsCollector:
     def _filter_representative_comments(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Filter for most representative comments per route.
+        Adapted for verbatims_sentiment table structure.
         Returns diverse, informative comments that best represent issues.
         """
         try:
@@ -805,6 +825,7 @@ class ChatbotVerbatimsCollector:
                 
             text_col = self._get_text_column(df)
             if not text_col:
+                logger.warning("No text column found for representative comments filtering")
                 return df
                 
             # Enhance route extraction first
@@ -851,6 +872,7 @@ class ChatbotVerbatimsCollector:
     def _filter_general_intelligent_query(self, df: pd.DataFrame, intelligent_query: str) -> pd.DataFrame:
         """
         Enhanced general filtering for other intelligent queries.
+        Adapted for verbatims_sentiment table structure.
         """
         try:
             query_lower = intelligent_query.lower()
@@ -899,7 +921,51 @@ class ChatbotVerbatimsCollector:
 
     def _get_text_column(self, df: pd.DataFrame) -> str:
         """Get the name of the text column in the DataFrame"""
-        possible_names = ['verbatim_text', 'Verbatim_Text', 'text', 'comment', 'feedback']
+        # Updated for verbatims_sentiment table structure
+        possible_names = ['verbatim_text', 'Verbatim_Text', 'text', 'comment', 'feedback', 'Verbatim', '[Verbatim]']
+        for col in possible_names:
+            if col in df.columns:
+                return col
+        return None
+
+    def _clean_verbatims_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Clean column names from verbatims_sentiment table.
+        Converts 'verbatims_sentiment[column_name]' to 'column_name' for easier handling.
+        """
+        try:
+            if df.empty:
+                return df
+            
+            # Create a mapping for column names
+            column_mapping = {}
+            for col in df.columns:
+                if col.startswith('verbatims_sentiment[') and col.endswith(']'):
+                    # Extract the column name from verbatims_sentiment[column_name]
+                    clean_name = col.replace('verbatims_sentiment[', '').replace(']', '')
+                    column_mapping[col] = clean_name
+                elif col == '[Verbatim]':
+                    # Keep the Verbatim column as is
+                    column_mapping[col] = 'Verbatim_Text'
+            
+            # Rename columns
+            if column_mapping:
+                df = df.rename(columns=column_mapping)
+                logger.info(f"🔧 Cleaned {len(column_mapping)} column names")
+            
+            return df
+            
+        except Exception as e:
+            logger.error(f"Error cleaning verbatims columns: {e}")
+            return df
+
+    def _get_sentiment_column(self, df: pd.DataFrame) -> str:
+        """Get the name of the sentiment column in the DataFrame"""
+        # Updated for verbatims_sentiment table structure
+        possible_names = [
+            'verbatim_global_sentiment', 'sentiment', 'sentiment_category', 
+            'global_sentiment', 'overall_sentiment'
+        ]
         for col in possible_names:
             if col in df.columns:
                 return col
