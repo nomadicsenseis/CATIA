@@ -403,6 +403,144 @@ single_prompts:
 # - Una hipótesis es válida con evidencia de AL MENOS UNA tool
 
 tools_prompts:
+  explanatory_drivers_tool:
+    comparative:
+      operative: |
+        🎯 **FLUJO OPERATIVO DETECTADO** - Drivers SHAP Operacionales
+
+        Has analizado los drivers explicativos del cambio NPS usando valores SHAP.
+
+        **📊 INTERPRETACIÓN DE DRIVERS SHAP OPERACIONALES:**
+
+        **DRIVERS OPERACIONALES IDENTIFICADOS** (|SHAP| > 0.1):
+        • **Punctuality/OTP**: Puntualidad y rendimiento operativo
+        • **Baggage/Mishandling**: Manejo de equipaje
+        • **Arrivals Experience**: Experiencia en llegadas
+        • **Operational Factors**: Factores operativos generales
+
+        **🔍 ANÁLISIS REQUERIDO:**
+
+        1. **IDENTIFICAR DRIVER PRINCIPAL**: ¿Cuál es el factor operativo con mayor impacto (mayor |SHAP|)?
+
+        2. **VALIDAR MAGNITUD**: ¿El |SHAP| justifica la magnitud de la anomalía NPS?
+
+        3. **CONFIRMAR FLUJO OPERATIVO**: Los drivers indican problemas operacionales, no de producto.
+
+        **📈 SIGUIENTE PASO OBLIGATORIO**: 
+        Ejecuta `operative_data_tool` para validar si los drivers SHAP operacionales se correlacionan con métricas operativas reales (OTP, Load Factor, Misconex, etc.).
+
+        **🎯 OBJETIVO**: Confirmar que los drivers SHAP operacionales tienen evidencia operativa tangible.
+
+        **🔄 FLUJO OPERATIVO COMPLETO**:
+        1. `operative_data_tool` → KPIs operativos
+        2. `ncs_tool` → Incidentes operacionales
+        3. `verbatims_tool` → Validar correlación operativa
+        4. `routes_tool` → Rutas operativas afectadas
+        5. `customer_profile_tool` → Perfiles reactivos a operación
+
+      product: |
+        🎯 **FLUJO PRODUCTO DETECTADO** - Drivers SHAP de Producto/Servicio
+
+        Has analizado los drivers explicativos del cambio NPS usando valores SHAP.
+
+        **📊 INTERPRETACIÓN DE DRIVERS SHAP DE PRODUCTO:**
+
+        **DRIVERS DE PRODUCTO IDENTIFICADOS** (|SHAP| > 0.1):
+        • **Crew**: Servicio de tripulación
+        • **Food**: Calidad de comida y bebida
+        • **Comfort**: Comodidad del asiento y cabina
+        • **Entertainment**: Entretenimiento a bordo
+        • **Service**: Calidad del servicio general
+        • **Cleanliness**: Limpieza y mantenimiento
+
+        **🔍 ANÁLISIS REQUERIDO:**
+
+        1. **IDENTIFICAR DRIVER PRINCIPAL**: ¿Cuál es el factor de producto con mayor impacto (mayor |SHAP|)?
+
+        2. **VALIDAR MAGNITUD**: ¿El |SHAP| justifica la magnitud de la anomalía NPS?
+
+        3. **CONFIRMAR FLUJO PRODUCTO**: Los drivers indican problemas de producto/servicio, no operacionales.
+
+        **📈 SIGUIENTE PASO OBLIGATORIO**: 
+        Ejecuta `verbatims_tool` para identificar incidentes específicos de producto y rutas afectadas en el segmento.
+
+        **🎯 OBJETIVO**: Identificar qué problemas específicos de producto están causando la anomalía NPS.
+
+        **🔄 FLUJO PRODUCTO COMPLETO**:
+        1. `verbatims_tool` (1ª) → Incidentes específicos de producto y rutas
+        2. `ncs_tool` → Incidentes operacionales secundarios
+        3. `verbatims_tool` (2ª) → Validar correlación producto
+        4. `routes_tool` → Rutas con peor CSAT producto
+        5. `customer_profile_tool` → Perfiles reactivos a producto
+
+      mixed: |
+        🎯 **FLUJO MIXTO DETECTADO** - Drivers SHAP Operacionales Y de Producto
+
+        Has analizado los drivers explicativos del cambio NPS usando valores SHAP.
+
+        **📊 INTERPRETACIÓN DE DRIVERS SHAP MIXTOS:**
+
+        **DRIVERS IDENTIFICADOS** (|SHAP| > 0.1):
+        • **OPERACIONALES**: Punctuality, OTP, Baggage, Arrivals Experience
+        • **PRODUCTO**: Crew, Food, Comfort, Entertainment, Service, Cleanliness
+
+        **🔍 ANÁLISIS REQUERIDO:**
+
+        1. **IDENTIFICAR DRIVERS PRINCIPALES**: ¿Cuáles son los factores con mayor impacto (mayor |SHAP|)?
+
+        2. **VALIDAR MAGNITUD**: ¿Los |SHAP| justifican la magnitud de la anomalía NPS?
+
+        3. **CONFIRMAR FLUJO MIXTO**: Los drivers indican problemas operacionales Y de producto simultáneamente.
+
+        **📈 SIGUIENTE PASO OBLIGATORIO**: 
+        Ejecuta `operative_data_tool` para comenzar la rama operativa del análisis mixto.
+
+        **🎯 OBJETIVO**: Analizar ambas ramas (operativa y producto) para generar hipótesis causales independientes.
+
+        **🔄 FLUJO MIXTO COMPLETO**:
+        
+        **RAMA OPERATIVA**:
+        1. `operative_data_tool` → KPIs operativos
+        2. `ncs_tool` → Incidentes operacionales
+        3. `verbatims_tool` → Validar correlación operativa
+        4. `routes_tool` → Rutas operativas afectadas
+        5. `customer_profile_tool` → Perfiles reactivos a operación
+
+        **RAMA PRODUCTO**:
+        1. `verbatims_tool` (1ª) → Incidentes específicos de producto
+        2. `ncs_tool` → Incidentes operacionales secundarios
+        3. `verbatims_tool` (2ª) → Validar correlación producto
+        4. `routes_tool` → Rutas con peor CSAT producto
+        5. `customer_profile_tool` → Perfiles reactivos a producto
+
+        **🚨 METODOLOGÍA**: Cada rama se ejecuta COMPLETAMENTE por separado para generar hipótesis independientes.
+
+    single: |
+      🎯 **ANÁLISIS EXPLANATORY DRIVERS COMPLETADO** - Valores SHAP del Período
+
+      Has analizado los drivers explicativos del cambio NPS para el período específico.
+
+      **📊 INTERPRETACIÓN DE DRIVERS SHAP:**
+
+      **DRIVERS SIGNIFICATIVOS** (|SHAP| > 0.1):
+      • **SHAP POSITIVO**: Factor que contribuye POSITIVAMENTE al NPS
+      • **SHAP NEGATIVO**: Factor que contribuye NEGATIVAMENTE al NPS
+
+      **🔍 ANÁLISIS REQUERIDO**:
+
+      1. **IDENTIFICAR DRIVER PRINCIPAL**: ¿Cuál es el factor con mayor impacto (mayor |SHAP|)?
+
+      2. **DETERMINAR TIPO DE PROBLEMA**:
+         • **DRIVER OPERATIVO** (Punctuality, OTP, Baggage, etc.)
+         • **DRIVER PRODUCTO** (Crew, Food, Comfort, etc.)
+
+      3. **VALIDAR MAGNITUD**: ¿El |SHAP| justifica la magnitud de la anomalía NPS?
+
+      **📈 SIGUIENTE PASO SUGERIDO**: 
+      Ejecuta `operative_data_tool` para validar si los drivers SHAP se correlacionan con métricas operativas del período.
+
+      **🎯 OBJETIVO**: Confirmar que los drivers SHAP tienen evidencia operativa tangible.
+
   operative_data_tool:
     comparative:
       operative: |
@@ -729,9 +867,9 @@ tools_prompts:
         **🔄 RAMA OPERATIVA EN CURSO**:
         1. ✅ `explanatory_drivers_tool` → Drivers SHAP mixtos
         2. ✅ `operative_data_tool` → KPIs operativos
-        3. ✅ `ncs_tool` → Incidentes operacionales (COMPLETADO)
-        4. 🔄 `verbatims_tool` → **SIGUIENTE OBLIGATORIO**
-        5. 🔄 `routes_tool` → **SIGUIENTE OBLIGATORIO**
+        3. 🔄 `ncs_tool` → **SIGUIENTE OBLIGATORIO**
+        4. ⏳ `verbatims_tool` → Validar correlación operativa
+        5. ⏳ `routes_tool` → Rutas operativas afectadas
         6. ⏳ `customer_profile_tool` → Perfiles reactivos a operación
 
         **🔄 RAMA PRODUCTO (PENDIENTE)**:
@@ -1499,143 +1637,7 @@ investigation_flow:
 # =============================================================================
 tool_descriptions:
   customer_profile_tool: 'Reactividad por 4 dimensiones: propósito, flota, residencia, codeshare.'
-  explanatory_drivers_tool:
-    comparative:
-      operative: |
-        🎯 **FLUJO OPERATIVO DETECTADO** - Drivers SHAP Operacionales
-
-        Has analizado los drivers explicativos del cambio NPS usando valores SHAP.
-
-        **📊 INTERPRETACIÓN DE DRIVERS SHAP OPERACIONALES:**
-
-        **DRIVERS OPERACIONALES IDENTIFICADOS** (|SHAP| > 0.1):
-        • **Punctuality/OTP**: Puntualidad y rendimiento operativo
-        • **Baggage/Mishandling**: Manejo de equipaje
-        • **Arrivals Experience**: Experiencia en llegadas
-        • **Operational Factors**: Factores operativos generales
-
-        **🔍 ANÁLISIS REQUERIDO:**
-
-        1. **IDENTIFICAR DRIVER PRINCIPAL**: ¿Cuál es el factor operativo con mayor impacto (mayor |SHAP|)?
-
-        2. **VALIDAR MAGNITUD**: ¿El |SHAP| justifica la magnitud de la anomalía NPS?
-
-        3. **CONFIRMAR FLUJO OPERATIVO**: Los drivers indican problemas operacionales, no de producto.
-
-        **📈 SIGUIENTE PASO OBLIGATORIO**: 
-        Ejecuta `operative_data_tool` para validar si los drivers SHAP operacionales se correlacionan con métricas operativas reales (OTP, Load Factor, Misconex, etc.).
-
-        **🎯 OBJETIVO**: Confirmar que los drivers SHAP operacionales tienen evidencia operativa tangible.
-
-        **🔄 FLUJO OPERATIVO COMPLETO**:
-        1. `operative_data_tool` → KPIs operativos
-        2. `ncs_tool` → Incidentes operacionales
-        3. `verbatims_tool` → Validar correlación operativa
-        4. `routes_tool` → Rutas operativas afectadas
-        5. `customer_profile_tool` → Perfiles reactivos a operación
-
-      product: |
-        🎯 **FLUJO PRODUCTO DETECTADO** - Drivers SHAP de Producto/Servicio
-
-        Has analizado los drivers explicativos del cambio NPS usando valores SHAP.
-
-        **📊 INTERPRETACIÓN DE DRIVERS SHAP DE PRODUCTO:**
-
-        **DRIVERS DE PRODUCTO IDENTIFICADOS** (|SHAP| > 0.1):
-        • **Crew**: Servicio de tripulación
-        • **Food**: Calidad de comida y bebida
-        • **Comfort**: Comodidad del asiento y cabina
-        • **Entertainment**: Entretenimiento a bordo
-        • **Service**: Calidad del servicio general
-        • **Cleanliness**: Limpieza y mantenimiento
-
-        **🔍 ANÁLISIS REQUERIDO:**
-
-        1. **IDENTIFICAR DRIVER PRINCIPAL**: ¿Cuál es el factor de producto con mayor impacto (mayor |SHAP|)?
-
-        2. **VALIDAR MAGNITUD**: ¿El |SHAP| justifica la magnitud de la anomalía NPS?
-
-        3. **CONFIRMAR FLUJO PRODUCTO**: Los drivers indican problemas de producto/servicio, no operacionales.
-
-        **📈 SIGUIENTE PASO OBLIGATORIO**: 
-        Ejecuta `verbatims_tool` para identificar incidentes específicos de producto y rutas afectadas en el segmento.
-
-        **🎯 OBJETIVO**: Identificar qué problemas específicos de producto están causando la anomalía NPS.
-
-        **🔄 FLUJO PRODUCTO COMPLETO**:
-        1. `verbatims_tool` (1ª) → Incidentes específicos de producto y rutas
-        2. `ncs_tool` → Incidentes operacionales secundarios
-        3. `verbatims_tool` (2ª) → Validar correlación producto
-        4. `routes_tool` → Rutas con peor CSAT producto
-        5. `customer_profile_tool` → Perfiles reactivos a producto
-
-      mixed: |
-        🎯 **FLUJO MIXTO DETECTADO** - Drivers SHAP Operacionales Y de Producto
-
-        Has analizado los drivers explicativos del cambio NPS usando valores SHAP.
-
-        **📊 INTERPRETACIÓN DE DRIVERS SHAP MIXTOS:**
-
-        **DRIVERS IDENTIFICADOS** (|SHAP| > 0.1):
-        • **OPERACIONALES**: Punctuality, OTP, Baggage, Arrivals Experience
-        • **PRODUCTO**: Crew, Food, Comfort, Entertainment, Service, Cleanliness
-
-        **🔍 ANÁLISIS REQUERIDO:**
-
-        1. **IDENTIFICAR DRIVERS PRINCIPALES**: ¿Cuáles son los factores con mayor impacto (mayor |SHAP|)?
-
-        2. **VALIDAR MAGNITUD**: ¿Los |SHAP| justifican la magnitud de la anomalía NPS?
-
-        3. **CONFIRMAR FLUJO MIXTO**: Los drivers indican problemas operacionales Y de producto simultáneamente.
-
-        **📈 SIGUIENTE PASO OBLIGATORIO**: 
-        Ejecuta `operative_data_tool` para comenzar la rama operativa del análisis mixto.
-
-        **🎯 OBJETIVO**: Analizar ambas ramas (operativa y producto) para generar hipótesis causales independientes.
-
-        **🔄 FLUJO MIXTO COMPLETO**:
-        
-        **RAMA OPERATIVA**:
-        1. `operative_data_tool` → KPIs operativos
-        2. `ncs_tool` → Incidentes operacionales
-        3. `verbatims_tool` → Validar correlación operativa
-        4. `routes_tool` → Rutas operativas afectadas
-        5. `customer_profile_tool` → Perfiles reactivos a operación
-
-        **RAMA PRODUCTO**:
-        1. `verbatims_tool` (1ª) → Incidentes específicos de producto
-        2. `ncs_tool` → Incidentes operacionales secundarios
-        3. `verbatims_tool` (2ª) → Validar correlación producto
-        4. `routes_tool` → Rutas con peor CSAT producto
-        5. `customer_profile_tool` → Perfiles reactivos a producto
-
-        **🚨 METODOLOGÍA**: Cada rama se ejecuta COMPLETAMENTE por separado para generar hipótesis independientes.
-
-    single: |
-      🎯 **ANÁLISIS EXPLANATORY DRIVERS COMPLETADO** - Valores SHAP del Período
-
-      Has analizado los drivers explicativos del cambio NPS para el período específico.
-
-      **📊 INTERPRETACIÓN DE DRIVERS SHAP:**
-
-      **DRIVERS SIGNIFICATIVOS** (|SHAP| > 0.1):
-      • **SHAP POSITIVO**: Factor que contribuye POSITIVAMENTE al NPS
-      • **SHAP NEGATIVO**: Factor que contribuye NEGATIVAMENTE al NPS
-
-      **🔍 ANÁLISIS REQUERIDO:**
-
-      1. **IDENTIFICAR DRIVER PRINCIPAL**: ¿Cuál es el factor con mayor impacto (mayor |SHAP|)?
-
-      2. **DETERMINAR TIPO DE PROBLEMA**:
-         • **DRIVER OPERATIVO** (Punctuality, OTP, Baggage, etc.)
-         • **DRIVER PRODUCTO** (Crew, Food, Comfort, etc.)
-
-      3. **VALIDAR MAGNITUD**: ¿El |SHAP| justifica la magnitud de la anomalía NPS?
-
-      **📈 SIGUIENTE PASO SUGERIDO**: 
-      Ejecuta `operative_data_tool` para validar si los drivers SHAP se correlacionan con métricas operativas del período.
-
-      **🎯 OBJETIVO**: Confirmar que los drivers SHAP tienen evidencia operativa tangible.
+  explanatory_drivers_tool: 'Análisis de drivers SHAP para determinar flujo (operative/product/mixed).'
   ncs_tool: 'Incidentes operacionales. COMPARATIVE: con comparación temporal vs período anterior, valida drivers SHAP. SINGLE: del período específico.'
   operative_data_tool: 'KPIs operativos. COMPARATIVE: con comparación vs período anterior. SINGLE: valores absolutos del período específico.'
   routes_tool: 'Impacto por ruta/geografía. COMPARATIVE: cambios vs período anterior. SINGLE: valores del período específico.'
