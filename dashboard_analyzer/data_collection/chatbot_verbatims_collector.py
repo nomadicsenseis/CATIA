@@ -43,22 +43,6 @@ class ChatbotVerbatimsCollector:
         # Validate token on initialization
         if self.token:
             self._validate_token()
-
-    def _load_token_from_file(self) -> str:
-        """Load token from temp_aws_credentials.env file"""
-        try:
-            if os.path.exists(self.token_file):
-                with open(self.token_file, 'r') as f:
-                    for line in f:
-                        if 'chatbot_jwt_token' in line and '=' in line:
-                            token = line.split('=', 1)[1].strip()
-                            logger.info("✅ Token loaded from file")
-                            return token
-            logger.warning("⚠️ No token found in file")
-            return None
-        except Exception as e:
-            logger.error(f"❌ Error loading token from file: {e}")
-            return None
         
         # Diccionarios para análisis temático
         self.route_patterns = [
@@ -105,6 +89,22 @@ class ChatbotVerbatimsCollector:
             'horrible', 'terrible', 'malo', 'pésimo', 'desastroso',
             'molesto', 'furioso', 'decepcionado', 'nunca más', 'awful'
         ]
+
+    def _load_token_from_file(self) -> str:
+        """Load token from temp_aws_credentials.env file"""
+        try:
+            if os.path.exists(self.token_file):
+                with open(self.token_file, 'r') as f:
+                    for line in f:
+                        if 'chatbot_jwt_token' in line and '=' in line:
+                            token = line.split('=', 1)[1].strip()
+                            logger.info("✅ Token loaded from file")
+                            return token
+            logger.warning("⚠️ No token found in file")
+            return None
+        except Exception as e:
+            logger.error(f"❌ Error loading token from file: {e}")
+            return None
     
     def _validate_token(self) -> bool:
         """
@@ -128,99 +128,25 @@ class ChatbotVerbatimsCollector:
             time_until_expiry = exp_timestamp - current_time
             
             if time_until_expiry <= 0:
-                logger.warning("Token has expired")
+                logger.warning("Token has expired - will use PBI fallback")
                 self.token_expired = True
-                self._handle_token_expiration()
                 return False
             
-            # Check if token expires soon
-            if time_until_expiry <= self.token_refresh_threshold:
-                logger.warning(f"Token expires in {time_until_expiry:.0f} seconds")
-                self._handle_token_expiration()
-                return False
-            
+            # Token is still valid
             self.token_expired = False
+            logger.info(f"✅ Token valid for {time_until_expiry:.0f} more seconds")
             return True
             
-        except jwt.ExpiredSignatureError:
-            logger.warning("Token has expired (signature error)")
-            self.token_expired = True
-            self._handle_token_expiration()
-            return False
         except Exception as e:
             logger.error(f"Error validating token: {e}")
-            return False
-    
-    def _handle_token_expiration(self):
-        """
-        Handles token expiration by trying to reload from file, then falling back to PBI
-        """
-        try:
-            # Try to reload token from file (user may have updated it manually)
-            if self._reload_token_from_file():
-                logger.info("✅ Token reloaded from file successfully")
-                return
-            
-            # If token reload fails, mark as expired and fall back to PBI
-            logger.warning("⚠️ Token expired and could not be reloaded - will use PBI fallback")
             self.token_expired = True
-                
-        except Exception as e:
-            logger.error(f"Error handling token expiration: {e}")
-            self.token_expired = True
-    
-    def _reload_token_from_file(self) -> bool:
-        """
-        Attempts to reload the token from the credentials file
-        Returns True if successful, False otherwise
-        """
-        try:
-            if not os.path.exists(self.token_file):
-                logger.warning(f"Token file {self.token_file} not found")
-                return False
-            
-            # Read fresh token from file
-            with open(self.token_file, 'r') as f:
-                for line in f:
-                    if line.startswith('chatbot_jwt_token ='):
-                        new_token = line.split('=', 1)[1].strip().strip('"\'')
-                        
-                        # Validate new token
-                        if self._is_valid_token(new_token):
-                            self.token = new_token
-                            self.token_expired = False
-                            logger.info("✅ Token reloaded from file")
-                            return True
-                        else:
-                            logger.warning("New token from file is also expired")
-                            return False
-            
-            logger.warning("No valid token found in credentials file")
-            return False
-            
-        except Exception as e:
-            logger.error(f"Error reloading token from file: {e}")
             return False
     
-    def _is_valid_token(self, token: str) -> bool:
-        """
-        Checks if a token is valid without setting it as the current token
-        """
-        try:
-            if not token:
-                return False
-            
-            decoded = jwt.decode(token, options={"verify_signature": False})
-            exp_timestamp = decoded.get('exp')
-            
-            if not exp_timestamp:
-                return False
-            
-            current_time = datetime.utcnow().timestamp()
-            return exp_timestamp > current_time
-            
-        except Exception:
-            return False
+    # No token reloading - simple approach: use token until expired, then PBI fallback
+    
+
+    
+
     
     def ensure_valid_token(self) -> bool:
         """

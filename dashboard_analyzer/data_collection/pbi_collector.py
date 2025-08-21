@@ -631,6 +631,37 @@ class PBIDataCollector:
         
         return results
 
+    def _clean_routes_dictionary_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Clean column names specifically for routes dictionary
+        Removes Power BI table prefixes like 'Route_Master[column_name]' -> 'column_name'
+        """
+        if df.empty:
+            return df
+            
+        cleaned_columns = []
+        for col in df.columns:
+            if col is not None and isinstance(col, str):
+                # Remove Power BI table prefixes: 'Route_Master[column_name]' -> 'column_name'
+                if '[' in col and ']' in col:
+                    # Extract the part between brackets
+                    start_bracket = col.find('[')
+                    end_bracket = col.find(']')
+                    if start_bracket != -1 and end_bracket != -1:
+                        cleaned_col = col[start_bracket + 1:end_bracket]
+                        cleaned_columns.append(cleaned_col)
+                    else:
+                        cleaned_columns.append(col)
+                else:
+                    cleaned_columns.append(col)
+            else:
+                # Log problematic columns and use a safe default
+                self.logger.warning(f"⚠️ Found None/invalid column name: {col}, using default")
+                cleaned_columns.append(f"Column_{len(cleaned_columns)}")
+        
+        df.columns = cleaned_columns
+        return df
+
     def _safe_clean_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Safely clean column names by removing brackets, handling None columns
@@ -1121,9 +1152,12 @@ class PBIDataCollector:
             template = self._load_query_template("Rutas Diccionario.txt")
             
             # Execute query without any filters - we want the complete dictionary
-            result = await self._execute_query(template)
+            result = await self._execute_query_async(template)
             
             if result is not None and not result.empty:
+                # Clean column names specifically for routes dictionary
+                result = self._clean_routes_dictionary_columns(result)
+                
                 self.logger.info(f"✅ Collected routes dictionary with {len(result)} routes")
                 self.logger.debug(f"Routes dictionary columns: {list(result.columns)}")
                 
