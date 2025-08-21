@@ -13,18 +13,7 @@ from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
-# Import TokenManager for automatic token refresh
-try:
-    from .token_manager import TokenManager
-    TOKEN_MANAGER_AVAILABLE = True
-except ImportError:
-    try:
-        # Fallback for direct execution
-        from token_manager import TokenManager
-        TOKEN_MANAGER_AVAILABLE = True
-    except ImportError as e:
-        logger.warning(f"TokenManager not available: {e}")
-        TOKEN_MANAGER_AVAILABLE = False
+# Simple token management without Selenium automation
 
 
 class ChatbotVerbatimsCollector:
@@ -32,41 +21,44 @@ class ChatbotVerbatimsCollector:
     Recopilador y analizador de verbatims de chatbot y otras fuentes de feedback
     """
     
-    def __init__(self, pbi_collector=None, token: str = None, frontend_reload_callback=None, auto_refresh_tokens=True):
+    def __init__(self, pbi_collector=None, token: str = None):
         """
         Initialize the Chatbot Verbatims Collector
         
         Args:
             pbi_collector: Power BI data collector instance (fallback mode)
             token: JWT token for user authentication (from frontend)
-            frontend_reload_callback: Callback function to trigger frontend reload when token expires
-            auto_refresh_tokens: Enable automatic token refresh using Chrome automation
         """
         self.pbi_collector = pbi_collector
         self.token = token
-        self.frontend_reload_callback = frontend_reload_callback
-        self.auto_refresh_tokens = auto_refresh_tokens
         
-        # Token management
+        # Simple token management
         self.token_file = "dashboard_analyzer/temp_aws_credentials.env"
-        self.token_refresh_threshold = 300  # 5 minutes before expiry
         self.token_expired = False
         
-        # Initialize TokenManager if available and auto_refresh is enabled
-        self.token_manager = None
-        if TOKEN_MANAGER_AVAILABLE and self.auto_refresh_tokens:
-            try:
-                self.token_manager = TokenManager()
-                logger.info("✅ TokenManager initialized - automatic token refresh enabled")
-            except Exception as e:
-                logger.warning(f"⚠️ Failed to initialize TokenManager: {e}")
+        # Load token from file if not provided
+        if not self.token:
+            self.token = self._load_token_from_file()
         
         # Validate token on initialization
         if self.token:
             self._validate_token()
-        elif self.token_manager:
-            # Try to get token from TokenManager
-            self.token = self.token_manager.get_current_token()
+
+    def _load_token_from_file(self) -> str:
+        """Load token from temp_aws_credentials.env file"""
+        try:
+            if os.path.exists(self.token_file):
+                with open(self.token_file, 'r') as f:
+                    for line in f:
+                        if 'chatbot_jwt_token' in line and '=' in line:
+                            token = line.split('=', 1)[1].strip()
+                            logger.info("✅ Token loaded from file")
+                            return token
+            logger.warning("⚠️ No token found in file")
+            return None
+        except Exception as e:
+            logger.error(f"❌ Error loading token from file: {e}")
+            return None
         
         # Diccionarios para análisis temático
         self.route_patterns = [
@@ -161,34 +153,21 @@ class ChatbotVerbatimsCollector:
     
     def _handle_token_expiration(self):
         """
-        Handles token expiration by attempting automatic refresh or manual methods
+        Handles token expiration by trying to reload from file, then falling back to PBI
         """
         try:
-            # First, try automatic token refresh if TokenManager is available
-            if self.token_manager:
-                logger.info("🔄 Attempting automatic token refresh...")
-                if self.token_manager.ensure_valid_token():
-                    self.token = self.token_manager.get_current_token()
-                    self.token_expired = False
-                    logger.info("✅ Token automatically refreshed successfully")
-                    return
-                else:
-                    logger.warning("⚠️ Automatic token refresh failed, trying manual methods...")
-            
-            # Fallback: try to reload token from file
+            # Try to reload token from file (user may have updated it manually)
             if self._reload_token_from_file():
                 logger.info("✅ Token reloaded from file successfully")
                 return
             
-            # If all automatic methods fail, trigger frontend reload callback
-            if self.frontend_reload_callback:
-                logger.warning("🔄 Token expired, triggering frontend reload...")
-                self.frontend_reload_callback()
-            else:
-                logger.error("❌ Token expired and no refresh methods available")
+            # If token reload fails, mark as expired and fall back to PBI
+            logger.warning("⚠️ Token expired and could not be reloaded - will use PBI fallback")
+            self.token_expired = True
                 
         except Exception as e:
             logger.error(f"Error handling token expiration: {e}")
+            self.token_expired = True
     
     def _reload_token_from_file(self) -> bool:
         """
@@ -749,22 +728,13 @@ class ChatbotVerbatimsCollector:
         Returns (success: bool, message: str)
         """
         try:
-            # Test automatic token refresh capability first
-            if self.token_manager:
-                try:
-                    if self.token_manager.ensure_valid_token():
-                        token_info = self.token_manager.get_token_info()
-                        return True, f"✅ Automatic token management active - expires in {token_info['expires_in']}s"
-                    else:
-                        return False, "❌ Automatic token refresh failed"
-                except Exception as e:
-                    logger.warning(f"TokenManager test failed: {e}")
-            
-            # Test manual token validation
+            # Test token validity first
             if self.ensure_valid_token():
-                return True, "✅ Token is valid (manual mode)"
+                status = self.get_token_status()
+                expires_in = status.get('expires_in', 'Unknown')
+                return True, f"✅ Token is valid - expires in {expires_in}s"
             else:
-                # Fallback to PBI collector test
+                # Check if PBI fallback is available
                 if hasattr(self, 'pbi_collector') and self.pbi_collector:
                     return True, "✅ Verbatims collector ready (using PBI fallback)"
                 else:
@@ -821,14 +791,14 @@ class ChatbotVerbatimsCollector:
     def _apply_intelligent_query_filter(self, df: pd.DataFrame, intelligent_query: str) -> pd.DataFrame:
         """
         Apply intelligent query filtering to verbatims data.
-        Uses keyword matching and semantic analysis to filter relevant verbatims.
+        Enhanced with specific handling for route-based queries and representative comments.
         
         Args:
             df: DataFrame with verbatims data
             intelligent_query: Query string to filter by
             
         Returns:
-            Filtered DataFrame
+            Filtered DataFrame with enhanced route and sentiment analysis
         """
         try:
             if df.empty or not intelligent_query:
@@ -837,18 +807,142 @@ class ChatbotVerbatimsCollector:
             # Normalize query for better matching
             query_lower = intelligent_query.lower()
             
-            # Define keyword mappings for common queries
+            # Check for specific query types based on new verbatims questions
+            if 'rutas' in query_lower and 'negativ' in query_lower:
+                # Question 1: Routes with most negative comments
+                return self._filter_routes_negative_comments(df)
+            elif 'comentarios' in query_lower and 'representativ' in query_lower:
+                # Question 2: Representative comments for each route
+                return self._filter_representative_comments(df)
+            else:
+                # Use enhanced general filtering
+                return self._filter_general_intelligent_query(df, intelligent_query)
+            
+        except Exception as e:
+            logger.error(f"Error applying intelligent query filter: {e}")
+            return df
+
+    def _filter_routes_negative_comments(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Filter and analyze routes with most negative comments.
+        Returns DataFrame with route analysis and negative sentiment focus.
+        """
+        try:
+            if df.empty:
+                return df
+                
+            # Focus on negative sentiment
+            text_col = self._get_text_column(df)
+            if not text_col:
+                return df
+                
+            # Filter for negative sentiment using keywords and sentiment score
+            negative_keywords = [
+                'horrible', 'terrible', 'malo', 'pésimo', 'desastroso', 'awful',
+                'molesto', 'furioso', 'decepcionado', 'nunca más', 'worst',
+                'retraso', 'delay', 'cancelado', 'perdido', 'dañado', 'sucio',
+                'mal servicio', 'bad service', 'poor', 'disappointing'
+            ]
+            
+            # Create negative sentiment mask
+            negative_pattern = '|'.join(negative_keywords)
+            mask = df[text_col].str.lower().str.contains(negative_pattern, na=False, regex=True)
+            
+            # Also consider sentiment score if available
+            if 'sentiment_score' in df.columns:
+                # Sentiment scores typically range from -1 to 1, negatives are < 0
+                mask = mask | (df['sentiment_score'] < -0.2)
+            elif 'sentiment_category' in df.columns:
+                # If categorical sentiment available
+                mask = mask | (df['sentiment_category'].str.lower().isin(['negative', 'very negative', 'negativo']))
+            
+            negative_df = df[mask]
+            
+            # Extract and analyze routes
+            negative_df = self._enhance_route_extraction(negative_df)
+            
+            logger.info(f"🔍 Found {len(negative_df)} negative verbatims from {len(df)} total")
+            return negative_df
+            
+        except Exception as e:
+            logger.error(f"Error filtering negative routes: {e}")
+            return df
+
+    def _filter_representative_comments(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Filter for most representative comments per route.
+        Returns diverse, informative comments that best represent issues.
+        """
+        try:
+            if df.empty:
+                return df
+                
+            text_col = self._get_text_column(df)
+            if not text_col:
+                return df
+                
+            # Enhance route extraction first
+            df = self._enhance_route_extraction(df)
+            
+            # Select representative comments based on criteria:
+            # 1. Word count (not too short, not too long)
+            # 2. Clear sentiment
+            # 3. Specific issues mentioned
+            # 4. Route diversity
+            
+            # Filter by word count (meaningful comments)
+            if 'word_count' not in df.columns:
+                df['word_count'] = df[text_col].str.split().str.len()
+            
+            # Keep comments with reasonable length (10-100 words for readability)
+            mask = (df['word_count'] >= 10) & (df['word_count'] <= 100)
+            filtered_df = df[mask]
+            
+            # If we have route information, try to get diverse examples
+            if 'extracted_route' in filtered_df.columns:
+                route_samples = []
+                for route in filtered_df['extracted_route'].dropna().unique():
+                    route_comments = filtered_df[filtered_df['extracted_route'] == route]
+                    # Take top 3 most descriptive comments per route
+                    if len(route_comments) > 0:
+                        # Sort by word count (prefer moderately detailed comments)
+                        top_comments = route_comments.nlargest(3, 'word_count')
+                        route_samples.append(top_comments)
+                
+                if route_samples:
+                    filtered_df = pd.concat(route_samples, ignore_index=True)
+            else:
+                # If no routes, select most informative comments overall
+                filtered_df = filtered_df.nlargest(min(20, len(filtered_df)), 'word_count')
+            
+            logger.info(f"🔍 Selected {len(filtered_df)} representative comments from {len(df)} total")
+            return filtered_df
+            
+        except Exception as e:
+            logger.error(f"Error filtering representative comments: {e}")
+            return df
+
+    def _filter_general_intelligent_query(self, df: pd.DataFrame, intelligent_query: str) -> pd.DataFrame:
+        """
+        Enhanced general filtering for other intelligent queries.
+        """
+        try:
+            query_lower = intelligent_query.lower()
+            
+            # Enhanced keyword mappings
             keyword_mappings = {
-                'retraso': ['retraso', 'delay', 'tarde', 'puntualidad', 'cancelado'],
-                'equipaje': ['maleta', 'equipaje', 'baggage', 'perdido', 'dañado'],
-                'servicio': ['servicio', 'atención', 'tripulación', 'azafata', 'personal'],
-                'comida': ['comida', 'bebida', 'catering', 'menú', 'desayuno', 'almuerzo'],
-                'asiento': ['asiento', 'seat', 'espacio', 'cómodo', 'incómodo'],
-                'entretenimiento': ['wifi', 'entretenimiento', 'pantalla', 'película', 'música'],
-                'conexión': ['conexión', 'transbordo', 'escala', 'connecting'],
-                'limpieza': ['limpio', 'sucio', 'limpieza', 'higiene', 'clean'],
-                'precio': ['precio', 'caro', 'barato', 'tarifa', 'coste', 'precio'],
-                'reserva': ['reserva', 'booking', 'cambio', 'modificar', 'cancelar']
+                'retraso': ['retraso', 'delay', 'tarde', 'puntualidad', 'cancelado', 'atrasado'],
+                'equipaje': ['maleta', 'equipaje', 'baggage', 'perdido', 'dañado', 'facturación'],
+                'servicio': ['servicio', 'atención', 'tripulación', 'azafata', 'personal', 'crew'],
+                'comida': ['comida', 'bebida', 'catering', 'menú', 'desayuno', 'almuerzo', 'food'],
+                'asiento': ['asiento', 'seat', 'espacio', 'cómodo', 'incómodo', 'comfort'],
+                'entretenimiento': ['wifi', 'entretenimiento', 'pantalla', 'película', 'música', 'entertainment'],
+                'conexión': ['conexión', 'transbordo', 'escala', 'connecting', 'connection'],
+                'limpieza': ['limpio', 'sucio', 'limpieza', 'higiene', 'clean', 'dirty'],
+                'precio': ['precio', 'caro', 'barato', 'tarifa', 'coste', 'price', 'expensive'],
+                'reserva': ['reserva', 'booking', 'cambio', 'modificar', 'cancelar', 'reservation'],
+                'aeropuerto': ['aeropuerto', 'airport', 'terminal', 'puerta', 'gate', 'security'],
+                'boarding': ['embarque', 'boarding', 'puerta', 'gate', 'priority', 'zones']
             }
             
             # Extract keywords from query
@@ -861,17 +955,71 @@ class ChatbotVerbatimsCollector:
             if not relevant_keywords:
                 relevant_keywords = [word.strip() for word in query_lower.split() if len(word.strip()) > 2]
             
-            # Filter verbatims that contain relevant keywords
-            if relevant_keywords and 'verbatim_text' in df.columns:
-                mask = df['verbatim_text'].str.lower().str.contains('|'.join(relevant_keywords), na=False, regex=True)
+            # Filter verbatims
+            text_col = self._get_text_column(df)
+            if relevant_keywords and text_col:
+                pattern = '|'.join([re.escape(keyword) for keyword in relevant_keywords])
+                mask = df[text_col].str.lower().str.contains(pattern, na=False, regex=True)
                 filtered_df = df[mask]
                 
-                logger.info(f"🔍 Intelligent query '{intelligent_query}' filtered {len(df)} -> {len(filtered_df)} verbatims")
+                logger.info(f"🔍 General query '{intelligent_query}' filtered {len(df)} -> {len(filtered_df)} verbatims")
                 return filtered_df
             
-            # If no text column or keywords, return original data
             return df
             
         except Exception as e:
-            logger.error(f"Error applying intelligent query filter: {e}")
+            logger.error(f"Error in general intelligent query filter: {e}")
+            return df
+
+    def _get_text_column(self, df: pd.DataFrame) -> str:
+        """Get the name of the text column in the DataFrame"""
+        possible_names = ['verbatim_text', 'Verbatim_Text', 'text', 'comment', 'feedback']
+        for col in possible_names:
+            if col in df.columns:
+                return col
+        return None
+
+    def _enhance_route_extraction(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Enhanced route extraction from verbatim text.
+        Adds 'extracted_route' column with identified routes.
+        """
+        try:
+            text_col = self._get_text_column(df)
+            if not text_col:
+                return df
+                
+            # Improved route patterns
+            route_patterns = [
+                r'\b([A-Z]{3})\s*[-–—]\s*([A-Z]{3})\b',  # MAD-BCN, MAD – BCN
+                r'\b([A-Z]{3})\s+to\s+([A-Z]{3})\b',      # MAD to BCN
+                r'\b([A-Z]{3})\s*>\s*([A-Z]{3})\b',       # MAD > BCN
+                r'\bfrom\s+([A-Z]{3})\s+to\s+([A-Z]{3})\b', # from MAD to BCN
+                r'\b([A-Z]{3})[/\\]([A-Z]{3})\b',         # MAD/BCN, MAD\BCN
+            ]
+            
+            extracted_routes = []
+            for text in df[text_col].fillna(''):
+                route_found = None
+                for pattern in route_patterns:
+                    matches = re.finditer(pattern, str(text).upper())
+                    for match in matches:
+                        origin, dest = match.groups()
+                        route_found = f"{origin}-{dest}"
+                        break
+                    if route_found:
+                        break
+                extracted_routes.append(route_found)
+            
+            df = df.copy()  # Create a copy to avoid SettingWithCopyWarning
+            df['extracted_route'] = extracted_routes
+            
+            # Log route extraction stats
+            routes_found = sum(1 for route in extracted_routes if route)
+            logger.info(f"🛫 Extracted routes from {routes_found}/{len(df)} verbatims")
+            
+            return df
+            
+        except Exception as e:
+            logger.error(f"Error enhancing route extraction: {e}")
             return df  # Return original data on error 

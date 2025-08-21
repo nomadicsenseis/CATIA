@@ -352,36 +352,25 @@ class CausalExplanationAgent:
             self.config['helper_prompts'].update(custom_prompts['helper_prompts'])
     
     def _init_chatbot_collector(self):
-        """Initialize chatbot collector with automatic token refresh"""
+        """Initialize chatbot collector with simple token management"""
         try:
-            # Initialize with automatic token refresh enabled
-            self.logger.info("🔄 Initializing ChatbotVerbatimsCollector with automatic token refresh...")
-            return ChatbotVerbatimsCollector(
-                auto_refresh_tokens=True,  # Enable automatic token refresh
-                pbi_collector=self.pbi_collector  # Provide PBI collector as fallback
-            )
+            # Load token if available
+            token = self._load_chatbot_token()
+            if token:
+                self.logger.info("🔄 Initializing ChatbotVerbatimsCollector with token...")
+                return ChatbotVerbatimsCollector(
+                    token=token,
+                    pbi_collector=self.pbi_collector  # Provide PBI collector as fallback
+                )
+            else:
+                self.logger.info("🔄 No token found - initializing with PBI fallback only...")
+                return ChatbotVerbatimsCollector(
+                    pbi_collector=self.pbi_collector
+                )
+                
         except Exception as e:
-            self.logger.warning(f"Failed to initialize chatbot collector with auto-refresh: {e}")
-            
-            # Fallback to manual mode if auto-refresh fails
-            try:
-                self.logger.info("🔄 Falling back to manual mode...")
-                token = self._load_chatbot_token()
-                if token:
-                    return ChatbotVerbatimsCollector(
-                        token=token,
-                        auto_refresh_tokens=False,
-                        pbi_collector=self.pbi_collector
-                    )
-                else:
-                    self.logger.warning("No chatbot token found - using PBI collector only")
-                    return ChatbotVerbatimsCollector(
-                        pbi_collector=self.pbi_collector,
-                        auto_refresh_tokens=False
-                    )
-            except Exception as e2:
-                self.logger.error(f"Failed to initialize chatbot collector in any mode: {e2}")
-                return None
+            self.logger.error(f"Failed to initialize chatbot collector: {e}")
+            return None
     
     def _load_chatbot_token(self) -> Optional[str]:
         """Load chatbot token from environment or file"""
