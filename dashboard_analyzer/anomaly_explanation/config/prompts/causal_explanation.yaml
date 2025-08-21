@@ -404,54 +404,152 @@ single_prompts:
 
 tools_prompts:
   operative_data_tool:
-    comparative: |
-      🎯 **ANÁLISIS OPERATIVO COMPLETADO** - KPIs con Comparación Inteligente
+    comparative:
+      operative: |
+        🎯 **ANÁLISIS OPERATIVO COMPLETADO** - KPIs con Comparación Inteligente
 
-      Has obtenido métricas operativas con **comparación alineada al modo de detección NPS** (vslast/mean/target).
+        Has obtenido métricas operativas con **comparación alineada al modo de detección NPS** (vslast/mean/target).
 
-      **⚠️ DISTINCIÓN CRÍTICA ENTRE PUNTUALIDAD REAL Y PERCEPCIÓN:**
-      • **OTP (On-Time Performance)**: Puntualidad REAL - común a nivel radio (LH/SH)
-      • **CSAT y SHAP Punctuality**: PERCEPCIÓN de puntualidad, viene de las respuestas de los clientes a la pregunta de puntualidad en la encuesta, por tanto es específica al grupo de clientes que seleccionamos en la agregación.
-      • **NUNCA confundir**: OTP no puede ser diferente entre Economy LH y Business LH (mismo radio)
+        **⚠️ DISTINCIÓN CRÍTICA ENTRE PUNTUALIDAD REAL Y PERCEPCIÓN:**
+        • **OTP (On-Time Performance)**: Puntualidad REAL - común a nivel radio (LH/SH)
+        • **CSAT y SHAP Punctuality**: PERCEPCIÓN de puntualidad, viene de las respuestas de los clientes a la pregunta de puntualidad en la encuesta, por tanto es específica al grupo de clientes que seleccionamos en la agregación.
+        • **NUNCA confundir**: OTP no puede ser diferente entre Economy LH y Business LH (mismo radio)
 
-      **📊 INTERPRETACIÓN DE CORRELACIÓN OPERATIVA-NPS:**
+        **📊 INTERPRETACIÓN DE CORRELACIÓN OPERATIVA-NPS:**
 
-      **MÉTRICAS DIRECTAMENTE PROPORCIONALES AL NPS** ✅:
-      • **OTP (On-Time Performance)** ↑ = NPS ↑ (mejor puntualidad = mejor experiencia)
+        **MÉTRICAS DIRECTAMENTE PROPORCIONALES AL NPS** ✅:
+        • **OTP (On-Time Performance)** ↑ = NPS ↑ (mejor puntualidad = mejor experiencia)
 
-      **MÉTRICAS INVERSAMENTE PROPORCIONALES AL NPS** ❌:
-      • **Load Factor** ↑ = NPS ↓ (más aglomeración = peor experiencia)
-      • **Misconex (Conexiones Perdidas)** ↑ = NPS ↓ (más problemas = peor experiencia)  
-      • **Mishandling (Equipaje)** ↑ = NPS ↓ (más mal manejo = peor experiencia)
+        **MÉTRICAS INVERSAMENTE PROPORCIONALES AL NPS** ❌:
+        • **Load Factor** ↑ = NPS ↓ (más aglomeración = peor experiencia)
+        • **Misconex (Conexiones Perdidas)** ↑ = NPS ↓ (más problemas = peor experiencia)  
+        • **Mishandling (Equipaje)** ↑ = NPS ↓ (más mal manejo = peor experiencia)
 
-      **🔍 ANÁLISIS CRÍTICO REQUERIDO:**
+        **🔍 ANÁLISIS CRÍTICO REQUERIDO:**
 
-      1. **CORRELACIÓN CON ANOMALÍA NPS**:
-         • ¿Las métricas que empeoraron EXPLICAN la anomalía negativa?
-         • ¿Las métricas que mejoraron EXPLICAN la anomalía positiva?
-         • ¿Hay métricas que CONTRADICEN la dirección de la anomalía?
+        1. **CORRELACIÓN CON ANOMALÍA NPS**:
+           • ¿Las métricas que empeoraron EXPLICAN la anomalía negativa?
+           • ¿Las métricas que mejoraron EXPLICAN la anomalía positiva?
+           • ¿Hay métricas que CONTRADICEN la dirección de la anomalía?
 
-      2. **MAGNITUD Y SIGNIFICANCIA**:
-         • ¿Los cambios son estadísticamente significativos?
-         • ¿La magnitud del cambio operativo justifica la magnitud de la anomalía NPS?
+        2. **MAGNITUD Y SIGNIFICANCIA**:
+           • ¿Los cambios son estadísticamente significativos?
+           • ¿La magnitud del cambio operativo justifica la magnitud de la anomalía NPS?
 
-      3. **HIPÓTESIS ESPECÍFICA**:
-         • ¿Qué métrica operativa específica es la **causa tangible** principal?
-         • ¿Es un problema de puntualidad, capacidad, o manejo de equipaje?
+        3. **HIPÓTESIS ESPECÍFICA**:
+           • ¿Qué métrica operativa específica es la **causa tangible** principal?
+           • ¿Es un problema de puntualidad, capacidad, o manejo de equipaje?
 
-      4. **CORRELACIÓN OTP vs SHAP Punctuality**:
-         • ¿El OTP real explica la percepción SHAP Punctuality?
-         • ¿Hay segmentos con OTP malo pero SHAP Punctuality bueno (o viceversa)?
+        4. **CORRELACIÓN OTP vs SHAP Punctuality**:
+           • ¿El OTP real explica la percepción SHAP Punctuality?
+           • ¿Hay segmentos con OTP malo pero SHAP Punctuality bueno (o viceversa)?
 
-      **🔄 MODO DE COMPARACIÓN UTILIZADO**:
-      • **VSLAST**: Período actual vs período inmediatamente anterior
-      • **MEAN**: Período actual vs promedio histórico
-      • **TARGET**: Período actual vs objetivos establecidos
+        **🔄 MODO DE COMPARACIÓN UTILIZADO**:
+        • **VSLAST**: Período actual vs período inmediatamente anterior
+        • **MEAN**: Período actual vs promedio histórico
+        • **TARGET**: Período actual vs objetivos establecidos
 
-      **📈 SIGUIENTE PASO OBLIGATORIO**: 
-      Ejecuta `ncs_tool` para validar si estos deterioros/mejoras operativos corresponden con incidentes operacionales específicos del mismo período.
+        **📈 SIGUIENTE PASO OBLIGATORIO**: 
+        Ejecuta `ncs_tool` para validar si estos deterioros/mejoras operativos corresponden con incidentes operacionales específicos del mismo período.
 
-      **🎯 OBJETIVO**: Confirmar que el deterioro operativo identificado tiene **evidencia concreta** en incidentes NCS temporalmente alineados.
+        **🎯 OBJETIVO**: Confirmar que el deterioro operativo identificado tiene **evidencia concreta** en incidentes NCS temporalmente alineados.
+
+        **🔄 FLUJO OPERATIVO EN CURSO**:
+        1. ✅ `explanatory_drivers_tool` → Drivers SHAP operacionales
+        2. ✅ `operative_data_tool` → KPIs operativos (COMPLETADO)
+        3. 🔄 `ncs_tool` → **SIGUIENTE OBLIGATORIO**
+        4. ⏳ `verbatims_tool` → Validar correlación operativa
+        5. ⏳ `routes_tool` → Rutas operativas afectadas
+        6. ⏳ `customer_profile_tool` → Perfiles reactivos a operación
+
+      product: |
+        🎯 **ANÁLISIS OPERATIVO COMPLETADO** - KPIs en Flujo Producto
+
+        Has obtenido métricas operativas con **comparación alineada al modo de detección NPS** (vslast/mean/target).
+
+        **⚠️ CONTEXTO DEL FLUJO PRODUCTO:**
+        • Los drivers SHAP indican problemas de producto/servicio (Crew, Food, Comfort, etc.)
+        • Este análisis operativo es **SECUNDARIO** para validar si hay factores operativos que agravan los problemas de producto
+
+        **📊 INTERPRETACIÓN EN CONTEXTO PRODUCTO:**
+
+        **MÉTRICAS QUE PUEDEN AGRAVAR PROBLEMAS DE PRODUCTO**:
+        • **Load Factor** ↑ = Más aglomeración = Peor experiencia de producto
+        • **OTP** ↓ = Retrasos = Más tiempo expuesto a problemas de producto
+        • **Misconex** ↑ = Cambios de vuelo = Más exposición a problemas de producto
+
+        **🔍 ANÁLISIS CRÍTICO REQUERIDO:**
+
+        1. **FACTORES AGRAVANTES**:
+           • ¿Los problemas operativos AGRAVAN los problemas de producto identificados?
+           • ¿Hay métricas operativas que explican la severidad de los problemas de producto?
+
+        2. **CORRELACIÓN OPERATIVA-PRODUCTO**:
+           • ¿Los clientes con peor experiencia de producto también sufren problemas operativos?
+           • ¿Es una combinación de factores lo que explica la anomalía NPS?
+
+        **📈 SIGUIENTE PASO OBLIGATORIO**: 
+        Ejecuta `verbatims_tool` para identificar incidentes específicos de producto y rutas afectadas en el segmento.
+
+        **🎯 OBJETIVO**: Identificar qué problemas específicos de producto están causando la anomalía NPS.
+
+        **🔄 FLUJO PRODUCTO EN CURSO**:
+        1. ✅ `explanatory_drivers_tool` → Drivers SHAP de producto
+        2. ✅ `operative_data_tool` → KPIs operativos (COMPLETADO)
+        3. 🔄 `verbatims_tool` → **SIGUIENTE OBLIGATORIO**
+        4. ⏳ `ncs_tool` → Incidentes operacionales secundarios
+        5. ⏳ `verbatims_tool` (2ª) → Validar correlación producto
+        6. ⏳ `routes_tool` → Rutas con peor CSAT producto
+        7. ⏳ `customer_profile_tool` → Perfiles reactivos a producto
+
+      mixed: |
+        🎯 **ANÁLISIS OPERATIVO COMPLETADO** - KPIs en Rama Operativa del Flujo Mixto
+
+        Has obtenido métricas operativas con **comparación alineada al modo de detección NPS** (vslast/mean/target).
+
+        **⚠️ CONTEXTO DEL FLUJO MIXTO - RAMA OPERATIVA:**
+        • Los drivers SHAP indican problemas operacionales Y de producto simultáneamente
+        • Esta es la **RAMA OPERATIVA** del análisis mixto
+        • Se ejecutará **COMPLETAMENTE** por separado de la rama producto
+
+        **📊 INTERPRETACIÓN DE CORRELACIÓN OPERATIVA-NPS:**
+
+        **MÉTRICAS DIRECTAMENTE PROPORCIONALES AL NPS** ✅:
+        • **OTP (On-Time Performance)** ↑ = NPS ↑ (mejor puntualidad = mejor experiencia)
+
+        **MÉTRICAS INVERSAMENTE PROPORCIONALES AL NPS** ❌:
+        • **Load Factor** ↑ = NPS ↓ (más aglomeración = peor experiencia)
+        • **Misconex (Conexiones Perdidas)** ↑ = NPS ↓ (más problemas = peor experiencia)  
+        • **Mishandling (Equipaje)** ↑ = NPS ↓ (más mal manejo = peor experiencia)
+
+        **🔍 ANÁLISIS CRÍTICO REQUERIDO:**
+
+        1. **CORRELACIÓN CON ANOMALÍA NPS**:
+           • ¿Las métricas operativas que empeoraron EXPLICAN la anomalía negativa?
+           • ¿Las métricas operativas que mejoraron EXPLICAN la anomalía positiva?
+
+        2. **HIPÓTESIS OPERATIVA ESPECÍFICA**:
+           • ¿Qué métrica operativa específica es la **causa tangible** principal de la rama operativa?
+
+        **📈 SIGUIENTE PASO OBLIGATORIO**: 
+        Ejecuta `ncs_tool` para validar si estos deterioros/mejoras operativos corresponden con incidentes operacionales específicos del mismo período.
+
+        **🎯 OBJETIVO**: Completar la rama operativa para generar una hipótesis causal operativa independiente.
+
+        **🔄 RAMA OPERATIVA EN CURSO**:
+        1. ✅ `explanatory_drivers_tool` → Drivers SHAP mixtos
+        2. ✅ `operative_data_tool` → KPIs operativos (COMPLETADO)
+        3. 🔄 `ncs_tool` → **SIGUIENTE OBLIGATORIO**
+        4. ⏳ `verbatims_tool` → Validar correlación operativa
+        5. ⏳ `routes_tool` → Rutas operativas afectadas
+        6. ⏳ `customer_profile_tool` → Perfiles reactivos a operación
+
+        **🔄 RAMA PRODUCTO (PENDIENTE)**:
+        1. ⏳ `verbatims_tool` (1ª) → Incidentes específicos de producto
+        2. ⏳ `ncs_tool` → Incidentes operacionales secundarios
+        3. ⏳ `verbatims_tool` (2ª) → Validar correlación producto
+        4. ⏳ `routes_tool` → Rutas con peor CSAT producto
+        5. ⏳ `customer_profile_tool` → Perfiles reactivos a producto
 
     single: |
       🎯 **ANÁLISIS OPERATIVO COMPLETADO** - KPIs del Período
@@ -492,49 +590,156 @@ tools_prompts:
       **🎯 OBJETIVO**: Verificar que los valores operativos identificados tienen **evidencia concreta** en incidentes NCS del período.
 
   ncs_tool:
-    comparative: |
-      🎯 ANÁLISIS COMPLETADO - Inteligencia Operacional NCS con Comparación Temporal
+    comparative:
+      operative: |
+        🎯 ANÁLISIS COMPLETADO - Inteligencia Operacional NCS con Comparación Temporal
 
-      Has recopilado datos de incidentes operacionales con **comparación temporal actual vs período anterior**. Interpreta:
+        Has recopilado datos de incidentes operacionales con **comparación temporal actual vs período anterior**. Interpreta:
 
-      **DATOS ESTRUCTURADOS DISPONIBLES**:
-      - 📋 Categorías totales: Cuántos incidentes de cada tipo ocurrieron (actual vs anterior)
-      - 🛫 Rutas afectadas: Desglose específico por ruta con formato RUTA(C:X|D:Y|R:Z|O:W|L:V)
-      - 👥 Pasajeros impactados: Por clase (J/W/Y) y total
-      - ⏱️ Estadísticas de retrasos: Promedio, total de minutos, cantidad de vuelos
-      - 🔧 Motivos principales: Técnicas, operativas, meteorología, rotación, etc.
-      - 🔄 **COMPARACIÓN TEMPORAL**: Cambios vs período anterior (deltas, porcentajes)
+        **DATOS ESTRUCTURADOS DISPONIBLES**:
+        - 📋 Categorías totales: Cuántos incidentes de cada tipo ocurrieron (actual vs anterior)
+        - 🛫 Rutas afectadas: Desglose específico por ruta con formato RUTA(C:X|D:Y|R:Z|O:W|L:V)
+        - 👥 Pasajeros impactados: Por clase (J/W/Y) y total
+        - ⏱️ Estadísticas de retrasos: Promedio, total de minutos, cantidad de vuelos
+        - 🔧 Motivos principales: Técnicas, operativas, meteorología, rotación, etc.
+        - 🔄 **COMPARACIÓN TEMPORAL**: Cambios vs período anterior (deltas, porcentajes)
 
-      **INTERPRETACIÓN TEMPORAL CRÍTICA**:
-      🚨 **NUNCA interpretes incidentes en valores absolutos - SIEMPRE interpreta cambios temporales**
+        **INTERPRETACIÓN TEMPORAL CRÍTICA**:
+        🚨 **NUNCA interpretes incidentes en valores absolutos - SIEMPRE interpreta cambios temporales**
 
-      **VALIDACIÓN DE DRIVERS SHAP**:
-      - **SHAP POSITIVO** (ej: Punctuality +4.83):
-        ✅ **Buscar**: ¿Se REDUJERON cancelaciones/retrasos vs período anterior?
-        ✅ **Si SÍ**: "Mejora operativa explica SHAP positivo" 
-        ❌ **Si NO**: "Inconsistencia - investigar otros factores"
+        **VALIDACIÓN DE DRIVERS SHAP**:
+        - **SHAP POSITIVO** (ej: Punctuality +4.83):
+          ✅ **Buscar**: ¿Se REDUJERON cancelaciones/retrasos vs período anterior?
+          ✅ **Si SÍ**: "Mejora operativa explica SHAP positivo" 
+          ❌ **Si NO**: "Inconsistencia - investigar otros factores"
 
-      - **SHAP NEGATIVO** (ej: Punctuality -4.83):
-        ✅ **Buscar**: ¿Se AUMENTARON cancelaciones/retrasos vs período anterior?
-        ✅ **Si SÍ**: "Deterioro operativo explica SHAP negativo"
-        ❌ **Si NO**: "Inconsistencia - investigar otros factores"
+        - **SHAP NEGATIVO** (ej: Punctuality -4.83):
+          ✅ **Buscar**: ¿Se AUMENTARON cancelaciones/retrasos vs período anterior?
+          ✅ **Si SÍ**: "Deterioro operativo explica SHAP negativo"
+          ❌ **Si NO**: "Inconsistencia - investigar otros factores"
 
-      **CORRELACIÓN TEMPORAL ESPECÍFICA**:
-      - **Cancelaciones ↓** + Punctuality SHAP ↑ = Coherente (menos cancelaciones = mejor puntualidad)
-      - **Retrasos ↓** + Punctuality SHAP ↑ = Coherente (menos retrasos = mejor puntualidad)  
-      - **Limitaciones ↓** + Aircraft Interior SHAP ↑ = Coherente (menos problemas técnicos = mejor experiencia)
+        **CORRELACIÓN TEMPORAL ESPECÍFICA**:
+        - **Cancelaciones ↓** + Punctuality SHAP ↑ = Coherente (menos cancelaciones = mejor puntualidad)
+        - **Retrasos ↓** + Punctuality SHAP ↑ = Coherente (menos retrasos = mejor puntualidad)  
+        - **Limitaciones ↓** + Aircraft Interior SHAP ↑ = Coherente (menos problemas técnicos = mejor experiencia)
 
-      **GENERACIÓN DE HIPÓTESIS TEMPORAL**:
-      - **Si incidentes DISMINUYERON**: "Mejora operativa explica drivers SHAP positivos"
-      - **Si incidentes AUMENTARON**: "Deterioro operativo explica drivers SHAP negativos"
-      - **Si incidentes constantes pero SHAP cambió**: "Factores no operativos (producto/servicio)"
+        **GENERACIÓN DE HIPÓTESIS TEMPORAL**:
+        - **Si incidentes DISMINUYERON**: "Mejora operativa explica drivers SHAP positivos"
+        - **Si incidentes AUMENTARON**: "Deterioro operativo explica drivers SHAP negativos"
+        - **Si incidentes constantes pero SHAP cambió**: "Factores no operativos (producto/servicio)"
 
-      **ENFOQUE**: Usa COMPARACIÓN TEMPORAL como validación directa de los explanatory drivers SHAP.
+        **ENFOQUE**: Usa COMPARACIÓN TEMPORAL como validación directa de los explanatory drivers SHAP.
 
-      **📈 SIGUIENTE PASO OBLIGATORIO**: 
-      Ejecuta `verbatims_tool` para validar si los incidentes NCS identificados se reflejan en las quejas de clientes y confirmar correlación entre rutas afectadas por incidentes vs rutas con peor CSAT.
+        **📈 SIGUIENTE PASO OBLIGATORIO**: 
+        Ejecuta `verbatims_tool` para validar si los incidentes NCS identificados se reflejan en las quejas de clientes y confirmar correlación entre rutas afectadas por incidentes vs rutas con peor CSAT.
 
-      **🎯 OBJETIVO**: Confirmar que los incidentes operacionales realmente impactaron la percepción del cliente a través de sus verbatims.
+        **🎯 OBJETIVO**: Confirmar que los incidentes operacionales realmente impactaron la percepción del cliente a través de sus verbatims.
+
+        **🔄 FLUJO OPERATIVO EN CURSO**:
+        1. ✅ `explanatory_drivers_tool` → Drivers SHAP operacionales
+        2. ✅ `operative_data_tool` → KPIs operativos
+        3. ✅ `ncs_tool` → Incidentes operacionales (COMPLETADO)
+        4. 🔄 `verbatims_tool` → **SIGUIENTE OBLIGATORIO**
+        5. ⏳ `routes_tool` → Rutas operativas afectadas
+        6. ⏳ `customer_profile_tool` → Perfiles reactivos a operación
+
+      product: |
+        🎯 ANÁLISIS COMPLETADO - Inteligencia Operacional NCS en Flujo Producto
+
+        Has recopilado datos de incidentes operacionales con **comparación temporal actual vs período anterior**. 
+
+        **⚠️ CONTEXTO DEL FLUJO PRODUCTO:**
+        • Los drivers SHAP indican problemas de producto/servicio (Crew, Food, Comfort, etc.)
+        • Este análisis NCS es **SECUNDARIO** para validar si hay factores operativos que agravan los problemas de producto
+        • Se ejecuta DESPUÉS de la primera ejecución de `verbatims_tool`
+
+        **DATOS ESTRUCTURADOS DISPONIBLES**:
+        - 📋 Categorías totales: Cuántos incidentes de cada tipo ocurrieron (actual vs anterior)
+        - 🛫 Rutas afectadas: Desglose específico por ruta con formato RUTA(C:X|D:Y|R:Z|O:W|L:V)
+        - 👥 Pasajeros impactados: Por clase (J/W/Y) y total
+        - ⏱️ Estadísticas de retrasos: Promedio, total de minutos, cantidad de vuelos
+        - 🔧 Motivos principales: Técnicas, operativas, meteorología, rotación, etc.
+
+        **INTERPRETACIÓN EN CONTEXTO PRODUCTO**:
+        🚨 **Busca factores operativos que AGRAVAN los problemas de producto identificados**
+
+        **FACTORES AGRAVANTES A IDENTIFICAR**:
+        - **Cancelaciones/Retrasos** → Más tiempo expuesto a problemas de producto
+        - **Cambios de aeronave** → Cambios de equipamiento que afectan experiencia de producto
+        - **Problemas técnicos** → Agravan problemas de servicio/entretenimiento
+
+        **CORRELACIÓN PRODUCTO-OPERATIVA**:
+        - ¿Los clientes con peor experiencia de producto también sufren problemas operativos?
+        - ¿Es una combinación de factores lo que explica la severidad de la anomalía NPS?
+
+        **📈 SIGUIENTE PASO OBLIGATORIO**: 
+        Ejecuta `verbatims_tool` (2ª ejecución) para validar la correlación entre incidentes de producto identificados inicialmente y los incidentes operacionales secundarios.
+
+        **🎯 OBJETIVO**: Confirmar que la combinación de problemas de producto y operativos explica la anomalía NPS.
+
+        **🔄 FLUJO PRODUCTO EN CURSO**:
+        1. ✅ `explanatory_drivers_tool` → Drivers SHAP de producto
+        2. ✅ `operative_data_tool` → KPIs operativos
+        3. ✅ `verbatims_tool` (1ª) → Incidentes específicos de producto
+        4. ✅ `ncs_tool` → Incidentes operacionales secundarios (COMPLETADO)
+        5. 🔄 `verbatims_tool` (2ª) → **SIGUIENTE OBLIGATORIO**
+        6. ⏳ `routes_tool` → Rutas con peor CSAT producto
+        7. ⏳ `customer_profile_tool` → Perfiles reactivos a producto
+
+      mixed: |
+        🎯 ANÁLISIS COMPLETADO - Inteligencia Operacional NCS en Rama Operativa del Flujo Mixto
+
+        Has recopilado datos de incidentes operacionales con **comparación temporal actual vs período anterior**. 
+
+        **⚠️ CONTEXTO DEL FLUJO MIXTO - RAMA OPERATIVA:**
+        • Los drivers SHAP indican problemas operacionales Y de producto simultáneamente
+        • Esta es la **RAMA OPERATIVA** del análisis mixto
+        • Se ejecutará **COMPLETAMENTE** por separado de la rama producto
+
+        **DATOS ESTRUCTURADOS DISPONIBLES**:
+        - 📋 Categorías totales: Cuántos incidentes de cada tipo ocurrieron (actual vs anterior)
+        - 🛫 Rutas afectadas: Desglose específico por ruta con formato RUTA(C:X|D:Y|R:Z|O:W|L:V)
+        - 👥 Pasajeros impactados: Por clase (J/W/Y) y total
+        - ⏱️ Estadísticas de retrasos: Promedio, total de minutos, cantidad de vuelos
+        - 🔧 Motivos principales: Técnicas, operativas, meteorología, rotación, etc.
+
+        **INTERPRETACIÓN TEMPORAL CRÍTICA**:
+        🚨 **NUNCA interpretes incidentes en valores absolutos - SIEMPRE interpreta cambios temporales**
+
+        **VALIDACIÓN DE DRIVERS SHAP OPERACIONALES**:
+        - **SHAP POSITIVO** (ej: Punctuality +4.83):
+          ✅ **Buscar**: ¿Se REDUJERON cancelaciones/retrasos vs período anterior?
+          ✅ **Si SÍ**: "Mejora operativa explica SHAP positivo" 
+          ❌ **Si NO**: "Inconsistencia - investigar otros factores"
+
+        - **SHAP NEGATIVO** (ej: Punctuality -4.83):
+          ✅ **Buscar**: ¿Se AUMENTARON cancelaciones/retrasos vs período anterior?
+          ✅ **Si SÍ**: "Deterioro operativo explica SHAP negativo"
+          ❌ **Si NO**: "Inconsistencia - investigar otros factores"
+
+        **GENERACIÓN DE HIPÓTESIS OPERATIVA**:
+        - **Si incidentes DISMINUYERON**: "Mejora operativa explica drivers SHAP positivos"
+        - **Si incidentes AUMENTARON**: "Deterioro operativo explica drivers SHAP negativos"
+
+        **📈 SIGUIENTE PASO OBLIGATORIO**: 
+        Ejecuta `verbatims_tool` para validar si los incidentes NCS identificados se reflejan en las quejas de clientes y confirmar correlación entre rutas afectadas por incidentes vs rutas con peor CSAT.
+
+        **🎯 OBJETIVO**: Completar la rama operativa para generar una hipótesis causal operativa independiente.
+
+        **🔄 RAMA OPERATIVA EN CURSO**:
+        1. ✅ `explanatory_drivers_tool` → Drivers SHAP mixtos
+        2. ✅ `operative_data_tool` → KPIs operativos
+        3. ✅ `ncs_tool` → Incidentes operacionales (COMPLETADO)
+        4. 🔄 `verbatims_tool` → **SIGUIENTE OBLIGATORIO**
+        5. 🔄 `routes_tool` → **SIGUIENTE OBLIGATORIO**
+        6. ⏳ `customer_profile_tool` → Perfiles reactivos a operación
+
+        **🔄 RAMA PRODUCTO (PENDIENTE)**:
+        1. ⏳ `verbatims_tool` (1ª) → Incidentes específicos de producto
+        2. ⏳ `ncs_tool` → Incidentes operacionales secundarios
+        3. ⏳ `verbatims_tool` (2ª) → Validar correlación producto
+        4. ⏳ `routes_tool` → Rutas con peor CSAT producto
+        5. ⏳ `customer_profile_tool` → Perfiles reactivos a producto
 
     single: |
       🎯 ANÁLISIS COMPLETADO - Inteligencia Operacional NCS del Período
@@ -576,23 +781,177 @@ tools_prompts:
       **ENFOQUE**: Identifica qué incidentes del período específico explican la anomalía NPS observada.
 
   routes_tool:
-    comparative: |
-      🎯 ANÁLISIS COMPLETADO - Inteligencia de Rutas con Comparación
+    comparative:
+      operative: |
+        🎯 ANÁLISIS COMPLETADO - Inteligencia de Rutas Operativas con Comparación
 
-      Has identificado rutas con desempeño diferenciado vs período de comparación. Esto alimenta directamente los 3 objetivos:
+        Has identificado rutas con desempeño operativo diferenciado vs período de comparación. Esto alimenta directamente los 3 objetivos:
 
-      **OBJETIVO 2 (Rutas Afectadas)**: Las rutas de peor NPS y mayor deterioro vs período anterior son tus rutas afectadas clave.
+        **OBJETIVO 2 (Rutas Afectadas)**: Las rutas de peor NPS y mayor deterioro operativo vs período anterior son tus rutas afectadas clave.
 
-      **CORRELACIÓN CON NCS**: Si tienes datos NCS previos, verifica si estas rutas coinciden con incidentes operacionales.
+        **CORRELACIÓN CON NCS Y VERBATIMS OPERATIVOS**: 
+        • Si tienes datos NCS previos, verifica si estas rutas coinciden con incidentes operacionales
+        • Si tienes verbatims previos, verifica si las quejas operativas coinciden con estas rutas
 
-      **⚠️ ENFOQUE EN TENDENCIA**: El NPS diff vs período anterior es MÁS IMPORTANTE que el valor absoluto - indica deterioro/mejora reciente.
+        **⚠️ ENFOQUE EN TENDENCIA**: El NPS diff vs período anterior es MÁS IMPORTANTE que el valor absoluto - indica deterioro/mejora operativa reciente.
 
-      **📈 SIGUIENTE PASO OBLIGATORIO**: 
-      Ejecuta `customer_profile_tool` para identificar qué perfiles de clientes son más reactivos a los problemas identificados en estas rutas específicas.
+        **🔍 ANÁLISIS CRÍTICO REQUERIDO**:
 
-      **🎯 OBJETIVO**: Completar la triangulación Causa → Rutas → Perfiles para generar la hipótesis causal completa.
+        1. **CORRELACIÓN OPERATIVA COMPLETA**:
+           • ¿Las rutas con peor CSAT operativo coinciden con las rutas con incidentes NCS?
+           • ¿Las rutas con peor CSAT operativo coinciden con las rutas mencionadas en verbatims operativos?
 
-      **ENFOQUE ANALÍTICO**: Las rutas identificadas aquí validan la correlación entre evidencia operativa/NCS y impacto geográfico real en satisfacción.
+        2. **HIPÓTESIS OPERATIVA GEOGRÁFICA**:
+           • ¿Hay un patrón geográfico específico en los problemas operativos?
+           • ¿Qué rutas son las más críticas para la anomalía NPS operativa?
+
+        **📈 SIGUIENTE PASO OBLIGATORIO**: 
+        Ejecuta `customer_profile_tool` para identificar qué perfiles de clientes son más reactivos a los problemas operativos identificados en estas rutas específicas.
+
+        **🎯 OBJETIVO**: Completar la triangulación Causa Operativa → Rutas → Perfiles para generar la hipótesis causal operativa completa.
+
+        **🔄 FLUJO OPERATIVO EN CURSO**:
+        1. ✅ `explanatory_drivers_tool` → Drivers SHAP operacionales
+        2. ✅ `operative_data_tool` → KPIs operativos
+        3. ✅ `ncs_tool` → Incidentes operacionales
+        4. ✅ `verbatims_tool` → Validar correlación operativa
+        5. ✅ `routes_tool` → Rutas operativas afectadas (COMPLETADO)
+        6. 🔄 `customer_profile_tool` → **SIGUIENTE OBLIGATORIO**
+
+        **ENFOQUE ANALÍTICO**: Las rutas identificadas aquí validan la correlación entre evidencia operativa/NCS/verbatims y impacto geográfico real en satisfacción operativa.
+
+      product: |
+        🎯 ANÁLISIS COMPLETADO - Inteligencia de Rutas de Producto con Comparación
+
+        Has identificado rutas con desempeño de producto diferenciado vs período de comparación. Esto alimenta directamente los 3 objetivos:
+
+        **OBJETIVO 2 (Rutas Afectadas)**: Las rutas de peor NPS y mayor deterioro de producto vs período anterior son tus rutas afectadas clave.
+
+        **CORRELACIÓN CON VERBATIMS DE PRODUCTO**: 
+        • Si tienes verbatims previos, verifica si las quejas de producto coinciden con estas rutas
+        • Si tienes datos NCS previos, verifica si hay incidentes operacionales secundarios en estas rutas
+
+        **⚠️ ENFOQUE EN TENDENCIA**: El NPS diff vs período anterior es MÁS IMPORTANTE que el valor absoluto - indica deterioro/mejora de producto reciente.
+
+        **🔍 ANÁLISIS CRÍTICO REQUERIDO**:
+
+        1. **CORRELACIÓN PRODUCTO COMPLETA**:
+           • ¿Las rutas con peor CSAT de producto coinciden con las rutas mencionadas en verbatims de producto?
+           • ¿Las rutas con peor CSAT de producto coinciden con las rutas con incidentes operacionales secundarios?
+
+        2. **HIPÓTESIS PRODUCTO GEOGRÁFICA**:
+           • ¿Hay un patrón geográfico específico en los problemas de producto?
+           • ¿Qué rutas son las más críticas para la anomalía NPS de producto?
+
+        **📈 SIGUIENTE PASO OBLIGATORIO**: 
+        Ejecuta `customer_profile_tool` para identificar qué perfiles de clientes son más reactivos a los problemas de producto identificados en estas rutas específicas.
+
+        **🎯 OBJETIVO**: Completar la triangulación Causa Producto → Rutas → Perfiles para generar la hipótesis causal de producto completa.
+
+        **🔄 FLUJO PRODUCTO EN CURSO**:
+        1. ✅ `explanatory_drivers_tool` → Drivers SHAP de producto
+        2. ✅ `operative_data_tool` → KPIs operativos
+        3. ✅ `verbatims_tool` (1ª) → Incidentes específicos de producto
+        4. ✅ `ncs_tool` → Incidentes operacionales secundarios
+        5. ✅ `verbatims_tool` (2ª) → Validar correlación producto
+        6. ✅ `routes_tool` → Rutas con peor CSAT producto (COMPLETADO)
+        7. 🔄 `customer_profile_tool` → **SIGUIENTE OBLIGATORIO**
+
+        **ENFOQUE ANALÍTICO**: Las rutas identificadas aquí validan la correlación entre evidencia de producto/verbatims/NCS secundarios y impacto geográfico real en satisfacción de producto.
+
+      mixed_operative: |
+        🎯 ANÁLISIS COMPLETADO - Inteligencia de Rutas Operativas en Rama Operativa del Flujo Mixto
+
+        Has identificado rutas con desempeño operativo diferenciado vs período de comparación en la **RAMA OPERATIVA** del flujo mixto.
+
+        **⚠️ CONTEXTO DEL FLUJO MIXTO - RAMA OPERATIVA:**
+        • Los drivers SHAP indican problemas operacionales Y de producto simultáneamente
+        • Esta es la **RAMA OPERATIVA** del análisis mixto
+        • Se ejecutará **COMPLETAMENTE** por separado de la rama producto
+
+        **OBJETIVO 2 (Rutas Afectadas Operativamente)**: Las rutas de peor NPS y mayor deterioro operativo vs período anterior son tus rutas afectadas clave de la rama operativa.
+
+        **CORRELACIÓN CON NCS Y VERBATIMS OPERATIVOS**: 
+        • Si tienes datos NCS previos, verifica si estas rutas coinciden con incidentes operacionales
+        • Si tienes verbatims previos, verifica si las quejas operativas coinciden con estas rutas
+
+        **🔍 ANÁLISIS CRÍTICO REQUERIDO**:
+
+        1. **CORRELACIÓN OPERATIVA COMPLETA**:
+           • ¿Las rutas con peor CSAT operativo coinciden con las rutas con incidentes NCS?
+           • ¿Las rutas con peor CSAT operativo coinciden con las rutas mencionadas en verbatims operativos?
+
+        2. **HIPÓTESIS OPERATIVA INDEPENDIENTE**:
+           • ¿Los problemas operativos por sí solos explican una parte de la anomalía NPS?
+           • ¿Qué rutas son las más críticas para la anomalía NPS operativa?
+
+        **📈 SIGUIENTE PASO OBLIGATORIO**: 
+        Ejecuta `customer_profile_tool` para identificar qué perfiles de clientes son más reactivos a los problemas operativos identificados en estas rutas específicas.
+
+        **🎯 OBJETIVO**: Completar la rama operativa para generar una hipótesis causal operativa independiente.
+
+        **🔄 RAMA OPERATIVA EN CURSO**:
+        1. ✅ `explanatory_drivers_tool` → Drivers SHAP mixtos
+        2. ✅ `operative_data_tool` → KPIs operativos
+        3. ✅ `ncs_tool` → Incidentes operacionales
+        4. ✅ `verbatims_tool` → Validar correlación operativa
+        5. ✅ `routes_tool` → Rutas operativas afectadas (COMPLETADO)
+        6. 🔄 `customer_profile_tool` → **SIGUIENTE OBLIGATORIO**
+
+        **🔄 RAMA PRODUCTO (PENDIENTE)**:
+        1. ⏳ `verbatims_tool` (1ª) → Incidentes específicos de producto
+        2. ⏳ `ncs_tool` → Incidentes operacionales secundarios
+        3. ⏳ `verbatims_tool` (2ª) → Validar correlación producto
+        4. ⏳ `routes_tool` → Rutas con peor CSAT producto
+        5. ⏳ `customer_profile_tool` → Perfiles reactivos a producto
+
+      mixed_product: |
+        🎯 ANÁLISIS COMPLETADO - Inteligencia de Rutas de Producto en Rama Producto del Flujo Mixto
+
+        Has identificado rutas con desempeño de producto diferenciado vs período de comparación en la **RAMA PRODUCTO** del flujo mixto.
+
+        **⚠️ CONTEXTO DEL FLUJO MIXTO - RAMA PRODUCTO:**
+        • Los drivers SHAP indican problemas operacionales Y de producto simultáneamente
+        • Esta es la **RAMA PRODUCTO** del análisis mixto
+        • Se ejecutará **COMPLETAMENTE** por separado de la rama operativa
+
+        **OBJETIVO 2 (Rutas Afectadas por Producto)**: Las rutas de peor NPS y mayor deterioro de producto vs período anterior son tus rutas afectadas clave de la rama producto.
+
+        **CORRELACIÓN CON VERBATIMS DE PRODUCTO**: 
+        • Si tienes verbatims previos, verifica si las quejas de producto coinciden con estas rutas
+        • Si tienes datos NCS previos, verifica si hay incidentes operacionales secundarios en estas rutas
+
+        **🔍 ANÁLISIS CRÍTICO REQUERIDO**:
+
+        1. **CORRELACIÓN PRODUCTO COMPLETA**:
+           • ¿Las rutas con peor CSAT de producto coinciden con las rutas mencionadas en verbatims de producto?
+           • ¿Las rutas con peor CSAT de producto coinciden con las rutas con incidentes operacionales secundarios?
+
+        2. **HIPÓTESIS PRODUCTO INDEPENDIENTE**:
+           • ¿Los problemas de producto por sí solos explican una parte de la anomalía NPS?
+           • ¿Qué rutas son las más críticas para la anomalía NPS de producto?
+
+        **📈 SIGUIENTE PASO OBLIGATORIO**: 
+        Ejecuta `customer_profile_tool` para identificar qué perfiles de clientes son más reactivos a los problemas de producto identificados en estas rutas específicas.
+
+        **🎯 OBJETIVO**: Completar la rama producto para generar una hipótesis causal de producto independiente.
+
+        **🔄 RAMA PRODUCTO EN CURSO**:
+        1. ✅ `explanatory_drivers_tool` → Drivers SHAP mixtos
+        2. ✅ `operative_data_tool` → KPIs operativos
+        3. ✅ `verbatims_tool` (1ª) → Incidentes específicos de producto
+        4. ✅ `ncs_tool` → Incidentes operacionales secundarios
+        5. ✅ `verbatims_tool` (2ª) → Validar correlación producto
+        6. ✅ `routes_tool` → Rutas con peor CSAT producto (COMPLETADO)
+        7. 🔄 `customer_profile_tool` → **SIGUIENTE OBLIGATORIO**
+
+        **🔄 RAMA OPERATIVA (COMPLETADA)**:
+        1. ✅ `explanatory_drivers_tool` → Drivers SHAP mixtos
+        2. ✅ `operative_data_tool` → KPIs operativos
+        3. ✅ `ncs_tool` → Incidentes operacionales
+        4. ✅ `verbatims_tool` → Validar correlación operativa
+        5. ✅ `routes_tool` → Rutas operativas afectadas
+        6. ✅ `customer_profile_tool` → Perfiles reactivos a operación
 
     single: |
       🎯 ANÁLISIS COMPLETADO - Inteligencia de Rutas del Período
@@ -613,67 +972,431 @@ tools_prompts:
       **ENFOQUE ANALÍTICO**: Las rutas identificadas aquí son la base para entender el impacto geográfico específico durante el período analizado.
 
   verbatims_tool:
-    comparative: |
-      🎯 **ANÁLISIS VOZ DEL CLIENTE** - Validación de Correlación Operativa
+    comparative:
+      operative: |
+        🎯 ANÁLISIS COMPLETADO - Verbatims en Flujo Operativo
 
-      **📋 FUNCIÓN ESPECÍFICA SEGÚN FLUJO:**
+        Has analizado el feedback libre de los clientes para validar la correlación operativa.
 
-      **FLUJO OPERATIVO** (después de ncs_tool):
-      • **Validar correlación**: ¿Los incidentes NCS se reflejan en quejas de clientes?
-      • **Comparar rutas**: ¿Las rutas afectadas por NCS coinciden con las de peor CSAT operativo?
-      • **Confirmar impacto**: ¿Los incidentes operacionales realmente afectaron la percepción?
+        **📊 CONTEXTO DEL FLUJO OPERATIVO:**
+        • Los drivers SHAP indican problemas operacionales (Punctuality, OTP, Baggage, etc.)
+        • Este análisis valida si los incidentes NCS identificados se reflejan en las quejas de clientes
+        • Se ejecuta DESPUÉS de `ncs_tool` para confirmar correlación operativa
 
-      **FLUJO PRODUCTO** (primera ejecución):
-      • **Identificar incidentes específicos**: ¿Cuáles son los incidentes de producto más mencionados?
-      • **Rutas afectadas**: ¿En qué rutas específicas se concentran estos problemas de producto?
-      • **Detalles causales**: ¿Qué aspectos específicos del producto están fallando?
+        **🔍 ANÁLISIS REQUERIDO:**
 
-      **🔍 PREGUNTAS IMPLEMENTADAS:**
-      1. **¿Cuáles son las rutas específicas (origen-destino) que tienen los comentarios más negativos?**
-      2. **¿Cuáles son los comentarios más representativos de cada una de esas rutas?**
+        1. **CORRELACIÓN NCS-VERBATIMS**:
+           • ¿Los incidentes operacionales identificados en NCS aparecen en los verbatims?
+           • ¿Los clientes mencionan específicamente problemas de puntualidad, equipaje, conexiones?
 
-      **📈 SIGUIENTE PASO**: 
-      • **FLUJO OPERATIVO**: Ejecuta `routes_tool` para correlación final de rutas
-      • **FLUJO PRODUCTO**: Ejecuta `ncs_tool` para encontrar incidentes operacionales secundarios
+        2. **RUTAS AFECTADAS**:
+           • ¿Las rutas con incidentes NCS coinciden con las rutas mencionadas en verbatims negativos?
+           • ¿Hay patrones geográficos en las quejas operativas?
 
-      **🎯 OBJETIVO**: Conectar la evidencia cualitativa (verbatims) con la evidencia cuantitativa (métricas/incidentes).
+        3. **SEVERIDAD PERCIBIDA**:
+           • ¿La severidad de las quejas en verbatims coincide con la magnitud de los incidentes NCS?
+           • ¿Los clientes perciben los problemas operativos como críticos?
+
+        **📈 SIGUIENTE PASO OBLIGATORIO**: 
+        Ejecuta `routes_tool` para identificar rutas específicas con peor CSAT operativo y confirmar la correlación geográfica.
+
+        **🎯 OBJETIVO**: Confirmar que los problemas operativos identificados tienen impacto geográfico específico en rutas afectadas.
+
+        **🔄 FLUJO OPERATIVO EN CURSO**:
+        1. ✅ `explanatory_drivers_tool` → Drivers SHAP operacionales
+        2. ✅ `operative_data_tool` → KPIs operativos
+        3. ✅ `ncs_tool` → Incidentes operacionales
+        4. ✅ `verbatims_tool` → Validar correlación operativa (COMPLETADO)
+        5. 🔄 `routes_tool` → **SIGUIENTE OBLIGATORIO**
+        6. ⏳ `customer_profile_tool` → Perfiles reactivos a operación
+
+      product: |
+        🎯 ANÁLISIS COMPLETADO - Verbatims en Flujo Producto
+
+        Has analizado el feedback libre de los clientes para identificar problemas específicos de producto.
+
+        **📊 CONTEXTO DEL FLUJO PRODUCTO:**
+        • Los drivers SHAP indican problemas de producto/servicio (Crew, Food, Comfort, etc.)
+        • Este análisis identifica incidentes específicos de producto y rutas afectadas
+        • Se ejecuta DESPUÉS de `operative_data_tool` como primera ejecución
+
+        **🔍 ANÁLISIS REQUERIDO:**
+
+        1. **INCIDENTES DE PRODUCTO IDENTIFICADOS**:
+           • ¿Qué problemas específicos de producto mencionan los clientes?
+           • ¿Son problemas de tripulación, comida, comodidad, entretenimiento, servicio, limpieza?
+
+        2. **RUTAS AFECTADAS**:
+           • ¿En qué rutas específicas se concentran los problemas de producto?
+           • ¿Hay patrones geográficos en las quejas de producto?
+
+        3. **SEVERIDAD Y FRECUENCIA**:
+           • ¿Qué tan frecuentes son los problemas de producto mencionados?
+           • ¿La severidad de las quejas justifica la magnitud del SHAP negativo?
+
+        **📈 SIGUIENTE PASO OBLIGATORIO**: 
+        Ejecuta `ncs_tool` para identificar incidentes operacionales secundarios que puedan agravar los problemas de producto.
+
+        **🎯 OBJETIVO**: Identificar qué problemas específicos de producto están causando la anomalía NPS.
+
+        **🔄 FLUJO PRODUCTO EN CURSO**:
+        1. ✅ `explanatory_drivers_tool` → Drivers SHAP de producto
+        2. ✅ `operative_data_tool` → KPIs operativos
+        3. ✅ `verbatims_tool` (1ª) → Incidentes específicos de producto (COMPLETADO)
+        4. 🔄 `ncs_tool` → **SIGUIENTE OBLIGATORIO**
+        5. ⏳ `verbatims_tool` (2ª) → Validar correlación producto
+        6. ⏳ `routes_tool` → Rutas con peor CSAT producto
+        7. ⏳ `customer_profile_tool` → Perfiles reactivos a producto
+
+      product_validation: |
+        🎯 ANÁLISIS COMPLETADO - Validación de Correlación Producto (2ª ejecución)
+
+        Has analizado el feedback libre de los clientes para validar la correlación entre incidentes de producto y operativos.
+
+        **📊 CONTEXTO DE VALIDACIÓN PRODUCTO:**
+        • Primera ejecución identificó incidentes específicos de producto
+        • Segunda ejecución valida correlación con incidentes operacionales secundarios
+        • Se ejecuta DESPUÉS de `ncs_tool` para confirmar correlación mixta
+
+        **🔍 ANÁLISIS REQUERIDO:**
+
+        1. **CORRELACIÓN PRODUCTO-OPERATIVA**:
+           • ¿Los clientes con peor experiencia de producto también sufren problemas operativos?
+           • ¿Es una combinación de factores lo que explica la severidad de la anomalía NPS?
+
+        2. **RUTAS CON PROBLEMAS COMBINADOS**:
+           • ¿Hay rutas donde se combinan problemas de producto Y operativos?
+           • ¿Estas rutas tienen peor CSAT que las que solo tienen un tipo de problema?
+
+        3. **HIPÓTESIS CAUSAL COMPUESTA**:
+           • ¿La combinación de problemas explica mejor la anomalía NPS que cada factor por separado?
+
+        **📈 SIGUIENTE PASO OBLIGATORIO**: 
+        Ejecuta `routes_tool` para identificar rutas específicas con peor CSAT producto y confirmar la correlación geográfica.
+
+        **🎯 OBJETIVO**: Confirmar que los problemas de producto identificados tienen impacto geográfico específico en rutas afectadas.
+
+        **🔄 FLUJO PRODUCTO EN CURSO**:
+        1. ✅ `explanatory_drivers_tool` → Drivers SHAP de producto
+        2. ✅ `operative_data_tool` → KPIs operativos
+        3. ✅ `verbatims_tool` (1ª) → Incidentes específicos de producto
+        4. ✅ `ncs_tool` → Incidentes operacionales secundarios
+        5. ✅ `verbatims_tool` (2ª) → Validar correlación producto (COMPLETADO)
+        6. 🔄 `routes_tool` → **SIGUIENTE OBLIGATORIO**
+        7. ⏳ `customer_profile_tool` → Perfiles reactivos a producto
+
+      mixed_operative: |
+        🎯 ANÁLISIS COMPLETADO - Verbatims en Rama Operativa del Flujo Mixto
+
+        Has analizado el feedback libre de los clientes para validar la correlación operativa en el flujo mixto.
+
+        **📊 CONTEXTO DEL FLUJO MIXTO - RAMA OPERATIVA:**
+        • Los drivers SHAP indican problemas operacionales Y de producto simultáneamente
+        • Esta es la **RAMA OPERATIVA** del análisis mixto
+        • Se ejecutará **COMPLETAMENTE** por separado de la rama producto
+
+        **🔍 ANÁLISIS REQUERIDO:**
+
+        1. **CORRELACIÓN NCS-VERBATIMS OPERATIVOS**:
+           • ¿Los incidentes operacionales identificados en NCS aparecen en los verbatims?
+           • ¿Los clientes mencionan específicamente problemas de puntualidad, equipaje, conexiones?
+
+        2. **RUTAS AFECTADAS OPERATIVAMENTE**:
+           • ¿Las rutas con incidentes NCS coinciden con las rutas mencionadas en verbatims negativos operativos?
+           • ¿Hay patrones geográficos en las quejas operativas?
+
+        3. **HIPÓTESIS OPERATIVA INDEPENDIENTE**:
+           • ¿Los problemas operativos por sí solos explican una parte de la anomalía NPS?
+
+        **📈 SIGUIENTE PASO OBLIGATORIO**: 
+        Ejecuta `routes_tool` para identificar rutas específicas con peor CSAT operativo y confirmar la correlación geográfica.
+
+        **🎯 OBJETIVO**: Completar la rama operativa para generar una hipótesis causal operativa independiente.
+
+        **🔄 RAMA OPERATIVA EN CURSO**:
+        1. ✅ `explanatory_drivers_tool` → Drivers SHAP mixtos
+        2. ✅ `operative_data_tool` → KPIs operativos
+        3. ✅ `ncs_tool` → Incidentes operacionales
+        4. ✅ `verbatims_tool` → Validar correlación operativa (COMPLETADO)
+        5. 🔄 `routes_tool` → **SIGUIENTE OBLIGATORIO**
+        6. ⏳ `customer_profile_tool` → Perfiles reactivos a operación
+
+        **🔄 RAMA PRODUCTO (PENDIENTE)**:
+        1. ⏳ `verbatims_tool` (1ª) → Incidentes específicos de producto
+        2. ⏳ `ncs_tool` → Incidentes operacionales secundarios
+        3. ⏳ `verbatims_tool` (2ª) → Validar correlación producto
+        4. ⏳ `routes_tool` → Rutas con peor CSAT producto
+        5. ⏳ `customer_profile_tool` → Perfiles reactivos a producto
+
+      mixed_product: |
+        🎯 ANÁLISIS COMPLETADO - Verbatims en Rama Producto del Flujo Mixto
+
+        Has analizado el feedback libre de los clientes para identificar problemas específicos de producto en el flujo mixto.
+
+        **📊 CONTEXTO DEL FLUJO MIXTO - RAMA PRODUCTO:**
+        • Los drivers SHAP indican problemas operacionales Y de producto simultáneamente
+        • Esta es la **RAMA PRODUCTO** del análisis mixto
+        • Se ejecutará **COMPLETAMENTE** por separado de la rama operativa
+
+        **🔍 ANÁLISIS REQUERIDO:**
+
+        1. **INCIDENTES DE PRODUCTO IDENTIFICADOS**:
+           • ¿Qué problemas específicos de producto mencionan los clientes?
+           • ¿Son problemas de tripulación, comida, comodidad, entretenimiento, servicio, limpieza?
+
+        2. **RUTAS AFECTADAS POR PRODUCTO**:
+           • ¿En qué rutas específicas se concentran los problemas de producto?
+           • ¿Hay patrones geográficos en las quejas de producto?
+
+        3. **HIPÓTESIS PRODUCTO INDEPENDIENTE**:
+           • ¿Los problemas de producto por sí solos explican una parte de la anomalía NPS?
+
+        **📈 SIGUIENTE PASO OBLIGATORIO**: 
+        Ejecuta `ncs_tool` para identificar incidentes operacionales secundarios que puedan agravar los problemas de producto.
+
+        **🎯 OBJETIVO**: Completar la rama producto para generar una hipótesis causal de producto independiente.
+
+        **🔄 RAMA PRODUCTO EN CURSO**:
+        1. ✅ `explanatory_drivers_tool` → Drivers SHAP mixtos
+        2. ✅ `operative_data_tool` → KPIs operativos
+        3. ✅ `verbatims_tool` (1ª) → Incidentes específicos de producto (COMPLETADO)
+        4. 🔄 `ncs_tool` → **SIGUIENTE OBLIGATORIO**
+        5. ⏳ `verbatims_tool` (2ª) → Validar correlación producto
+        6. ⏳ `routes_tool` → Rutas con peor CSAT producto
+        7. ⏳ `customer_profile_tool` → Perfiles reactivos a producto
+
+        **🔄 RAMA OPERATIVA (COMPLETADA)**:
+        1. ✅ `explanatory_drivers_tool` → Drivers SHAP mixtos
+        2. ✅ `operative_data_tool` → KPIs operativos
+        3. ✅ `ncs_tool` → Incidentes operacionales
+        4. ✅ `verbatims_tool` → Validar correlación operativa
+        5. ✅ `routes_tool` → Rutas operativas afectadas
+        6. ✅ `customer_profile_tool` → Perfiles reactivos a operación
 
     single: |
-      🎯 **Objetivo 1** · Análisis Voz del Cliente del Período
+      🎯 ANÁLISIS COMPLETADO - Verbatims del Período
 
-      Comentarios de clientes analizados para el período específico. Validación sugerida:
+      Has analizado el feedback libre de los clientes para el período específico analizado.
 
-      • **¿Qué temas dominan?** Identifica problemas principales mencionados
-      • **¿Aportan contexto?** Detalles específicos sobre la experiencia del período
-      • **¿Hay patrones claros?** Temas recurrentes que explican la anomalía NPS
-      • **Generar hipótesis** con evidencia cualitativa del período
+      **📊 INTERPRETACIÓN DE VERBATIMS:**
 
-      🔍 **Próximo**: `customer_profile_tool` para entender qué perfiles fueron más afectados
+      **TEMAS PRINCIPALES IDENTIFICADOS**:
+      • **Operacionales**: Puntualidad, equipaje, conexiones, retrasos
+      • **Producto**: Tripulación, comida, comodidad, entretenimiento, servicio, limpieza
+
+      **🔍 ANÁLISIS REQUERIDO:**
+
+      1. **CORRELACIÓN CON ANOMALÍA NPS**:
+         • ¿Los temas mencionados en verbatims explican la anomalía NPS observada?
+         • ¿Qué problemas son mencionados con mayor frecuencia?
+
+      2. **RUTAS AFECTADAS**:
+         • ¿En qué rutas específicas se concentran las quejas?
+         • ¿Hay patrones geográficos en los problemas mencionados?
+
+      3. **SEVERIDAD PERCIBIDA**:
+         • ¿La severidad de las quejas coincide con la magnitud de la anomalía NPS?
+         • ¿Los clientes perciben los problemas como críticos?
+
+      **📈 SIGUIENTE PASO SUGERIDO**: 
+      Ejecuta `routes_tool` para identificar rutas específicas con peor CSAT y confirmar la correlación geográfica.
+
+      **🎯 OBJETIVO**: Confirmar que los problemas identificados en verbatims tienen impacto geográfico específico.
 
   customer_profile_tool:
-    comparative: |
-      🎯 **Objetivo 3** (Reactividad) ✅ - Análisis Comparativo
+    comparative:
+      operative: |
+        🎯 ANÁLISIS COMPLETADO - Perfiles de Cliente Reactivos a Problemas Operativos
 
-      Perfiles reactivos identificados vs período de comparación. Consideraciones finales:
+        Has analizado la reactividad de perfiles de cliente por 4 dimensiones: propósito, flota, residencia, codeshare.
 
-      • **Resumir hallazgos clave** por propósito, flota, región, codeshare
-      • **Identificar segmento más vulnerable** a la causa específica
-      • **Cuantificar reactividad** (spreads NPS por perfil vs período anterior)
-      • **Análizar cambios** en comportamiento de perfiles
+        **📊 CONTEXTO DEL FLUJO OPERATIVO:**
+        • Los drivers SHAP indican problemas operacionales (Punctuality, OTP, Baggage, etc.)
+        • Este análisis identifica qué perfiles de cliente son más sensibles a problemas operativos
+        • Se ejecuta DESPUÉS de `routes_tool` para completar la triangulación operativa
 
-      🎯 **SÍNTESIS FINAL**: Consolidar 3 objetivos en informe ejecutivo
+        **🔍 ANÁLISIS REQUERIDO**:
+
+        1. **PERFILES MÁS REACTIVOS A OPERACIÓN**:
+           • ¿Qué perfiles de cliente muestran mayor deterioro en NPS por problemas operativos?
+           • ¿Hay diferencias por propósito de viaje, flota, residencia, o codeshare?
+
+        2. **CORRELACIÓN CON RUTAS OPERATIVAS**:
+           • ¿Los perfiles más reactivos coinciden con las rutas operativas afectadas identificadas?
+           • ¿Hay patrones demográficos en la sensibilidad a problemas operativos?
+
+        3. **HIPÓTESIS OPERATIVA COMPLETA**:
+           • ¿Qué combinación de problemas operativos + rutas + perfiles explica la anomalía NPS?
+
+        **🎯 OBJETIVO**: Completar la triangulación Causa Operativa → Rutas → Perfiles para generar la hipótesis causal operativa completa.
+
+        **🔄 FLUJO OPERATIVO COMPLETADO**:
+        1. ✅ `explanatory_drivers_tool` → Drivers SHAP operacionales
+        2. ✅ `operative_data_tool` → KPIs operativos
+        3. ✅ `ncs_tool` → Incidentes operacionales
+        4. ✅ `verbatims_tool` → Validar correlación operativa
+        5. ✅ `routes_tool` → Rutas operativas afectadas
+        6. ✅ `customer_profile_tool` → Perfiles reactivos a operación (COMPLETADO)
+
+        **🚨 INVESTIGACIÓN OPERATIVA COMPLETADA**: 
+        Has generado una hipótesis causal operativa completa con evidencia de drivers SHAP, métricas operativas, incidentes NCS, verbatims de clientes, rutas afectadas y perfiles reactivos.
+
+        **📈 SIGUIENTE PASO**: 
+        La investigación operativa está COMPLETA. Procede a la síntesis final o, si es flujo mixto, continúa con la rama producto.
+
+      product: |
+        🎯 ANÁLISIS COMPLETADO - Perfiles de Cliente Reactivos a Problemas de Producto
+
+        Has analizado la reactividad de perfiles de cliente por 4 dimensiones: propósito, flota, residencia, codeshare.
+
+        **📊 CONTEXTO DEL FLUJO PRODUCTO:**
+        • Los drivers SHAP indican problemas de producto/servicio (Crew, Food, Comfort, etc.)
+        • Este análisis identifica qué perfiles de cliente son más sensibles a problemas de producto
+        • Se ejecuta DESPUÉS de `routes_tool` para completar la triangulación de producto
+
+        **🔍 ANÁLISIS REQUERIDO**:
+
+        1. **PERFILES MÁS REACTIVOS A PRODUCTO**:
+           • ¿Qué perfiles de cliente muestran mayor deterioro en NPS por problemas de producto?
+           • ¿Hay diferencias por propósito de viaje, flota, residencia, o codeshare?
+
+        2. **CORRELACIÓN CON RUTAS DE PRODUCTO**:
+           • ¿Los perfiles más reactivos coinciden con las rutas de producto afectadas identificadas?
+           • ¿Hay patrones demográficos en la sensibilidad a problemas de producto?
+
+        3. **HIPÓTESIS PRODUCTO COMPLETA**:
+           • ¿Qué combinación de problemas de producto + rutas + perfiles explica la anomalía NPS?
+
+        **🎯 OBJETIVO**: Completar la triangulación Causa Producto → Rutas → Perfiles para generar la hipótesis causal de producto completa.
+
+        **🔄 FLUJO PRODUCTO COMPLETADO**:
+        1. ✅ `explanatory_drivers_tool` → Drivers SHAP de producto
+        2. ✅ `operative_data_tool` → KPIs operativos
+        3. ✅ `verbatims_tool` (1ª) → Incidentes específicos de producto
+        4. ✅ `ncs_tool` → Incidentes operacionales secundarios
+        5. ✅ `verbatims_tool` (2ª) → Validar correlación producto
+        6. ✅ `routes_tool` → Rutas con peor CSAT producto
+        7. ✅ `customer_profile_tool` → Perfiles reactivos a producto (COMPLETADO)
+
+        **🚨 INVESTIGACIÓN PRODUCTO COMPLETADA**: 
+        Has generado una hipótesis causal de producto completa con evidencia de drivers SHAP, métricas operativas, verbatims de clientes, incidentes NCS secundarios, rutas afectadas y perfiles reactivos.
+
+        **📈 SIGUIENTE PASO**: 
+        La investigación de producto está COMPLETA. Procede a la síntesis final.
+
+      mixed_operative: |
+        🎯 ANÁLISIS COMPLETADO - Perfiles de Cliente Reactivos a Problemas Operativos en Rama Operativa del Flujo Mixto
+
+        Has analizado la reactividad de perfiles de cliente por 4 dimensiones: propósito, flota, residencia, codeshare.
+
+        **⚠️ CONTEXTO DEL FLUJO MIXTO - RAMA OPERATIVA:**
+        • Los drivers SHAP indican problemas operacionales Y de producto simultáneamente
+        • Esta es la **RAMA OPERATIVA** del análisis mixto
+        • Se ejecutará **COMPLETAMENTE** por separado de la rama producto
+
+        **🔍 ANÁLISIS REQUERIDO**:
+
+        1. **PERFILES MÁS REACTIVOS A OPERACIÓN**:
+           • ¿Qué perfiles de cliente muestran mayor deterioro en NPS por problemas operativos?
+           • ¿Hay diferencias por propósito de viaje, flota, residencia, o codeshare?
+
+        2. **HIPÓTESIS OPERATIVA INDEPENDIENTE**:
+           • ¿Los problemas operativos por sí solos explican una parte de la anomalía NPS?
+           • ¿Qué combinación de problemas operativos + rutas + perfiles explica la anomalía NPS operativa?
+
+        **🎯 OBJETIVO**: Completar la rama operativa para generar una hipótesis causal operativa independiente.
+
+        **🔄 RAMA OPERATIVA COMPLETADA**:
+        1. ✅ `explanatory_drivers_tool` → Drivers SHAP mixtos
+        2. ✅ `operative_data_tool` → KPIs operativos
+        3. ✅ `ncs_tool` → Incidentes operacionales
+        4. ✅ `verbatims_tool` → Validar correlación operativa
+        5. ✅ `routes_tool` → Rutas operativas afectadas
+        6. ✅ `customer_profile_tool` → Perfiles reactivos a operación (COMPLETADO)
+
+        **🚨 RAMA OPERATIVA COMPLETADA**: 
+        Has generado una hipótesis causal operativa independiente con evidencia completa.
+
+        **📈 SIGUIENTE PASO**: 
+        La rama operativa está COMPLETA. Continúa con la rama producto para generar la hipótesis causal de producto independiente.
+
+        **🔄 RAMA PRODUCTO (PENDIENTE)**:
+        1. ⏳ `verbatims_tool` (1ª) → Incidentes específicos de producto
+        2. ⏳ `ncs_tool` → Incidentes operacionales secundarios
+        3. ⏳ `verbatims_tool` (2ª) → Validar correlación producto
+        4. ⏳ `routes_tool` → Rutas con peor CSAT producto
+        5. ⏳ `customer_profile_tool` → Perfiles reactivos a producto
+
+      mixed_product: |
+        🎯 ANÁLISIS COMPLETADO - Perfiles de Cliente Reactivos a Problemas de Producto en Rama Producto del Flujo Mixto
+
+        Has analizado la reactividad de perfiles de cliente por 4 dimensiones: propósito, flota, residencia, codeshare.
+
+        **⚠️ CONTEXTO DEL FLUJO MIXTO - RAMA PRODUCTO:**
+        • Los drivers SHAP indican problemas operacionales Y de producto simultáneamente
+        • Esta es la **RAMA PRODUCTO** del análisis mixto
+        • Se ejecutará **COMPLETAMENTE** por separado de la rama operativa
+
+        **🔍 ANÁLISIS REQUERIDO**:
+
+        1. **PERFILES MÁS REACTIVOS A PRODUCTO**:
+           • ¿Qué perfiles de cliente muestran mayor deterioro en NPS por problemas de producto?
+           • ¿Hay diferencias por propósito de viaje, flota, residencia, o codeshare?
+
+        2. **HIPÓTESIS PRODUCTO INDEPENDIENTE**:
+           • ¿Los problemas de producto por sí solos explican una parte de la anomalía NPS?
+           • ¿Qué combinación de problemas de producto + rutas + perfiles explica la anomalía NPS de producto?
+
+        **🎯 OBJETIVO**: Completar la rama producto para generar una hipótesis causal de producto independiente.
+
+        **🔄 RAMA PRODUCTO COMPLETADA**:
+        1. ✅ `explanatory_drivers_tool` → Drivers SHAP mixtos
+        2. ✅ `operative_data_tool` → KPIs operativos
+        3. ✅ `verbatims_tool` (1ª) → Incidentes específicos de producto
+        4. ✅ `ncs_tool` → Incidentes operacionales secundarios
+        5. ✅ `verbatims_tool` (2ª) → Validar correlación producto
+        6. ✅ `routes_tool` → Rutas con peor CSAT producto
+        7. ✅ `customer_profile_tool` → Perfiles reactivos a producto (COMPLETADO)
+
+        **🚨 RAMA PRODUCTO COMPLETADA**: 
+        Has generado una hipótesis causal de producto independiente con evidencia completa.
+
+        **🔄 RAMA OPERATIVA (COMPLETADA)**:
+        1. ✅ `explanatory_drivers_tool` → Drivers SHAP mixtos
+        2. ✅ `operative_data_tool` → KPIs operativos
+        3. ✅ `ncs_tool` → Incidentes operacionales
+        4. ✅ `verbatims_tool` → Validar correlación operativa
+        5. ✅ `routes_tool` → Rutas operativas afectadas
+        6. ✅ `customer_profile_tool` → Perfiles reactivos a operación
+
+        **🚨 FLUJO MIXTO COMPLETADO**: 
+        Ambas ramas (operativa y producto) están COMPLETAS. Has generado dos hipótesis causales independientes que explican diferentes aspectos de la anomalía NPS mixta.
+
+        **📈 SIGUIENTE PASO**: 
+        El flujo mixto está COMPLETO. Procede a la síntesis final con ambas hipótesis causales.
 
     single: |
-      🎯 **Objetivo 3** (Reactividad) ✅ - Análisis del Período
+      🎯 ANÁLISIS COMPLETADO - Perfiles de Cliente del Período
 
-      Perfiles reactivos identificados para el período específico. Consideraciones finales:
+      Has analizado la reactividad de perfiles de cliente por 4 dimensiones: propósito, flota, residencia, codeshare.
 
-      • **Resumir hallazgos clave** por propósito, flota, región, codeshare
-      • **Identificar segmento más vulnerable** durante el período
-      • **Cuantificar impacto** (valores NPS absolutos por perfil)
-      • **Analizar patrones** específicos del período
+      **🔍 ANÁLISIS REQUERIDO**:
 
-      🎯 **SÍNTESIS FINAL**: Consolidar 3 objetivos en informe ejecutivo
+      1. **PERFILES MÁS AFECTADOS**:
+         • ¿Qué perfiles de cliente muestran mayor deterioro en NPS durante el período?
+         • ¿Hay diferencias por propósito de viaje, flota, residencia, o codeshare?
+
+      2. **CORRELACIÓN CON RUTAS**:
+         • ¿Los perfiles más afectados coinciden con las rutas con peor CSAT identificadas?
+         • ¿Hay patrones demográficos en la sensibilidad a problemas?
+
+      3. **HIPÓTESIS CAUSAL COMPLETA**:
+         • ¿Qué combinación de problemas + rutas + perfiles explica la anomalía NPS del período?
+
+      **🎯 OBJETIVO**: Completar la triangulación Causa → Rutas → Perfiles para generar la hipótesis causal completa del período.
+
+      **📈 SIGUIENTE PASO**: 
+      La investigación está COMPLETA. Procede a la síntesis final.
 
 # =============================================================================
 # WORKFLOW GUIDANCE
@@ -776,7 +1499,143 @@ investigation_flow:
 # =============================================================================
 tool_descriptions:
   customer_profile_tool: 'Reactividad por 4 dimensiones: propósito, flota, residencia, codeshare.'
-  explanatory_drivers_tool: 'INICIO OBLIGATORIO para modo comparative. Calcula valores SHAP y determina flujo de investigación.'
+  explanatory_drivers_tool:
+    comparative:
+      operative: |
+        🎯 **FLUJO OPERATIVO DETECTADO** - Drivers SHAP Operacionales
+
+        Has analizado los drivers explicativos del cambio NPS usando valores SHAP.
+
+        **📊 INTERPRETACIÓN DE DRIVERS SHAP OPERACIONALES:**
+
+        **DRIVERS OPERACIONALES IDENTIFICADOS** (|SHAP| > 0.1):
+        • **Punctuality/OTP**: Puntualidad y rendimiento operativo
+        • **Baggage/Mishandling**: Manejo de equipaje
+        • **Arrivals Experience**: Experiencia en llegadas
+        • **Operational Factors**: Factores operativos generales
+
+        **🔍 ANÁLISIS REQUERIDO:**
+
+        1. **IDENTIFICAR DRIVER PRINCIPAL**: ¿Cuál es el factor operativo con mayor impacto (mayor |SHAP|)?
+
+        2. **VALIDAR MAGNITUD**: ¿El |SHAP| justifica la magnitud de la anomalía NPS?
+
+        3. **CONFIRMAR FLUJO OPERATIVO**: Los drivers indican problemas operacionales, no de producto.
+
+        **📈 SIGUIENTE PASO OBLIGATORIO**: 
+        Ejecuta `operative_data_tool` para validar si los drivers SHAP operacionales se correlacionan con métricas operativas reales (OTP, Load Factor, Misconex, etc.).
+
+        **🎯 OBJETIVO**: Confirmar que los drivers SHAP operacionales tienen evidencia operativa tangible.
+
+        **🔄 FLUJO OPERATIVO COMPLETO**:
+        1. `operative_data_tool` → KPIs operativos
+        2. `ncs_tool` → Incidentes operacionales
+        3. `verbatims_tool` → Validar correlación operativa
+        4. `routes_tool` → Rutas operativas afectadas
+        5. `customer_profile_tool` → Perfiles reactivos a operación
+
+      product: |
+        🎯 **FLUJO PRODUCTO DETECTADO** - Drivers SHAP de Producto/Servicio
+
+        Has analizado los drivers explicativos del cambio NPS usando valores SHAP.
+
+        **📊 INTERPRETACIÓN DE DRIVERS SHAP DE PRODUCTO:**
+
+        **DRIVERS DE PRODUCTO IDENTIFICADOS** (|SHAP| > 0.1):
+        • **Crew**: Servicio de tripulación
+        • **Food**: Calidad de comida y bebida
+        • **Comfort**: Comodidad del asiento y cabina
+        • **Entertainment**: Entretenimiento a bordo
+        • **Service**: Calidad del servicio general
+        • **Cleanliness**: Limpieza y mantenimiento
+
+        **🔍 ANÁLISIS REQUERIDO:**
+
+        1. **IDENTIFICAR DRIVER PRINCIPAL**: ¿Cuál es el factor de producto con mayor impacto (mayor |SHAP|)?
+
+        2. **VALIDAR MAGNITUD**: ¿El |SHAP| justifica la magnitud de la anomalía NPS?
+
+        3. **CONFIRMAR FLUJO PRODUCTO**: Los drivers indican problemas de producto/servicio, no operacionales.
+
+        **📈 SIGUIENTE PASO OBLIGATORIO**: 
+        Ejecuta `verbatims_tool` para identificar incidentes específicos de producto y rutas afectadas en el segmento.
+
+        **🎯 OBJETIVO**: Identificar qué problemas específicos de producto están causando la anomalía NPS.
+
+        **🔄 FLUJO PRODUCTO COMPLETO**:
+        1. `verbatims_tool` (1ª) → Incidentes específicos de producto y rutas
+        2. `ncs_tool` → Incidentes operacionales secundarios
+        3. `verbatims_tool` (2ª) → Validar correlación producto
+        4. `routes_tool` → Rutas con peor CSAT producto
+        5. `customer_profile_tool` → Perfiles reactivos a producto
+
+      mixed: |
+        🎯 **FLUJO MIXTO DETECTADO** - Drivers SHAP Operacionales Y de Producto
+
+        Has analizado los drivers explicativos del cambio NPS usando valores SHAP.
+
+        **📊 INTERPRETACIÓN DE DRIVERS SHAP MIXTOS:**
+
+        **DRIVERS IDENTIFICADOS** (|SHAP| > 0.1):
+        • **OPERACIONALES**: Punctuality, OTP, Baggage, Arrivals Experience
+        • **PRODUCTO**: Crew, Food, Comfort, Entertainment, Service, Cleanliness
+
+        **🔍 ANÁLISIS REQUERIDO:**
+
+        1. **IDENTIFICAR DRIVERS PRINCIPALES**: ¿Cuáles son los factores con mayor impacto (mayor |SHAP|)?
+
+        2. **VALIDAR MAGNITUD**: ¿Los |SHAP| justifican la magnitud de la anomalía NPS?
+
+        3. **CONFIRMAR FLUJO MIXTO**: Los drivers indican problemas operacionales Y de producto simultáneamente.
+
+        **📈 SIGUIENTE PASO OBLIGATORIO**: 
+        Ejecuta `operative_data_tool` para comenzar la rama operativa del análisis mixto.
+
+        **🎯 OBJETIVO**: Analizar ambas ramas (operativa y producto) para generar hipótesis causales independientes.
+
+        **🔄 FLUJO MIXTO COMPLETO**:
+        
+        **RAMA OPERATIVA**:
+        1. `operative_data_tool` → KPIs operativos
+        2. `ncs_tool` → Incidentes operacionales
+        3. `verbatims_tool` → Validar correlación operativa
+        4. `routes_tool` → Rutas operativas afectadas
+        5. `customer_profile_tool` → Perfiles reactivos a operación
+
+        **RAMA PRODUCTO**:
+        1. `verbatims_tool` (1ª) → Incidentes específicos de producto
+        2. `ncs_tool` → Incidentes operacionales secundarios
+        3. `verbatims_tool` (2ª) → Validar correlación producto
+        4. `routes_tool` → Rutas con peor CSAT producto
+        5. `customer_profile_tool` → Perfiles reactivos a producto
+
+        **🚨 METODOLOGÍA**: Cada rama se ejecuta COMPLETAMENTE por separado para generar hipótesis independientes.
+
+    single: |
+      🎯 **ANÁLISIS EXPLANATORY DRIVERS COMPLETADO** - Valores SHAP del Período
+
+      Has analizado los drivers explicativos del cambio NPS para el período específico.
+
+      **📊 INTERPRETACIÓN DE DRIVERS SHAP:**
+
+      **DRIVERS SIGNIFICATIVOS** (|SHAP| > 0.1):
+      • **SHAP POSITIVO**: Factor que contribuye POSITIVAMENTE al NPS
+      • **SHAP NEGATIVO**: Factor que contribuye NEGATIVAMENTE al NPS
+
+      **🔍 ANÁLISIS REQUERIDO:**
+
+      1. **IDENTIFICAR DRIVER PRINCIPAL**: ¿Cuál es el factor con mayor impacto (mayor |SHAP|)?
+
+      2. **DETERMINAR TIPO DE PROBLEMA**:
+         • **DRIVER OPERATIVO** (Punctuality, OTP, Baggage, etc.)
+         • **DRIVER PRODUCTO** (Crew, Food, Comfort, etc.)
+
+      3. **VALIDAR MAGNITUD**: ¿El |SHAP| justifica la magnitud de la anomalía NPS?
+
+      **📈 SIGUIENTE PASO SUGERIDO**: 
+      Ejecuta `operative_data_tool` para validar si los drivers SHAP se correlacionan con métricas operativas del período.
+
+      **🎯 OBJETIVO**: Confirmar que los drivers SHAP tienen evidencia operativa tangible.
   ncs_tool: 'Incidentes operacionales. COMPARATIVE: con comparación temporal vs período anterior, valida drivers SHAP. SINGLE: del período específico.'
   operative_data_tool: 'KPIs operativos. COMPARATIVE: con comparación vs período anterior. SINGLE: valores absolutos del período específico.'
   routes_tool: 'Impacto por ruta/geografía. COMPARATIVE: cambios vs período anterior. SINGLE: valores del período específico.'

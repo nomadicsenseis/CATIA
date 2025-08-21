@@ -1713,8 +1713,9 @@ class CausalExplanationAgent:
             """
             
             # Use the LLM to decide the next tool
-            response = await self.llm.agenerate([decision_prompt])
-            next_tool = response.generations[0][0].text.strip()
+            from langchain.schema import HumanMessage
+            response = await self.llm([HumanMessage(content=decision_prompt)])
+            next_tool = response.content.strip()
             
             # Clean up the response
             if next_tool.lower() in ['end', 'none', 'complete', 'finished']:
@@ -1740,7 +1741,7 @@ class CausalExplanationAgent:
     def _get_helper_prompt_for_tool(self, tool_name: str) -> str:
         """
         Get the helper prompt for a specific tool from the YAML configuration.
-        This provides guidance to the agent on what to do next.
+        The agent will determine the flow type through its analysis and use the appropriate prompt.
         """
         try:
             # Get the tools_prompts from the configuration
@@ -1748,8 +1749,43 @@ class CausalExplanationAgent:
             
             if tool_name in tools_prompts:
                 tool_config = tools_prompts[tool_name]
+                
+                # For comparative mode, return the appropriate flow-specific prompt
+                # The agent will use its intelligence to determine which flow to follow
                 if 'comparative' in tool_config:
-                    return tool_config['comparative']
+                    comparative_prompts = tool_config['comparative']
+                    
+                    # If it's a dictionary with flow-specific prompts, provide all options
+                    # The agent will analyze and choose the appropriate flow
+                    if isinstance(comparative_prompts, dict):
+                        # For explanatory_drivers_tool, provide all flow options
+                        # The agent will analyze the drivers SHAP and choose the appropriate flow
+                        if tool_name == 'explanatory_drivers_tool':
+                            flow_options = []
+                            if 'operative' in comparative_prompts:
+                                flow_options.append("OPERATIVE FLOW: " + comparative_prompts['operative'])
+                            if 'product' in comparative_prompts:
+                                flow_options.append("PRODUCT FLOW: " + comparative_prompts['product'])
+                            if 'mixed' in comparative_prompts:
+                                flow_options.append("MIXED FLOW: " + comparative_prompts['mixed'])
+                            
+                            if flow_options:
+                                return "\n\n".join(flow_options)
+                            else:
+                                return str(comparative_prompts)
+                        
+                        # For other tools, provide the operative prompt as default
+                        # The agent will follow the flow based on its previous analysis
+                        if 'operative' in comparative_prompts:
+                            return comparative_prompts['operative']
+                        elif 'mixed' in comparative_prompts:
+                            return comparative_prompts['mixed']
+                        else:
+                            return str(comparative_prompts)
+                    else:
+                        # If it's a string, return it directly
+                        return comparative_prompts
+                        
                 elif 'single' in tool_config:
                     return tool_config['single']
                 else:
