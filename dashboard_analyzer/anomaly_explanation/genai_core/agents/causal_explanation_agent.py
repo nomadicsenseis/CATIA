@@ -664,8 +664,8 @@ class CausalExplanationAgent:
         standard_sequence = [
             "explanatory_drivers_tool",
             "operative_data_tool",     # ← Add operative tool after explanatory drivers
-            "verbatims_tool", 
-            "ncs_tool",
+            "ncs_tool",                # ← First NCS for operational incidents
+            "verbatims_tool",          # ← Then verbatims to validate correlation
             "routes_tool",
             "customer_profile_tool"
         ]
@@ -1487,20 +1487,13 @@ class CausalExplanationAgent:
             )
             self.tracker.log_message("USER", user_input)
             
-            # Comparative tool sequence
-            comparative_sequence = [
-                "explanatory_drivers_tool",
-                "operative_data_tool",
-                "ncs_tool", 
-                "routes_tool",
-                "customer_profile_tool"
-            ]
-            
-            max_iterations = len(comparative_sequence)
+            # Let the agent decide which tools to use based on helper prompts and context
+            max_iterations = 5  # Maximum iterations to prevent infinite loops
             iteration = 0
+            current_tool = "explanatory_drivers_tool"  # Start with explanatory drivers
             
-            # Execute tools for comparative analysis
-            for current_tool in comparative_sequence:
+            # Execute tools based on agent decisions
+            while current_tool and iteration < max_iterations:
                 iteration += 1
                 self.tracker.next_iteration()
                 
@@ -1551,8 +1544,20 @@ class CausalExplanationAgent:
                     )
                     self.tracker.log_message("AI", f"REFLECTION: {reflection}")
                     self.logger.info(f"💭 Reflection captured for {current_tool}")
+                    
+                    # Let the agent decide the next tool based on reflection and helper prompts
+                    current_tool = await self._determine_next_tool_from_reflection(
+                        reflection, current_tool, iteration, max_iterations
+                    )
+                    if current_tool:
+                        self.logger.info(f"🔄 Agent decided next tool: {current_tool}")
+                    else:
+                        self.logger.info(f"✅ Agent decided to end investigation")
+                        break
                 else:
                     self.logger.warning(f"⚠️ No reflection captured for {current_tool}")
+                    # Fallback: end investigation if no reflection
+                    break
 
         except Exception as e:
             self.logger.error(f"❌ Error crítico en investigación comparativa: {type(e).__name__}: {e}")
@@ -1668,6 +1673,93 @@ class CausalExplanationAgent:
                 self.logger.error(f"❌ Error Body: {e.body}")
                 
             return f"ERROR executing {tool_name}: {type(e).__name__}: {str(e)}"
+    
+    async def _determine_next_tool_from_reflection(
+        self, 
+        reflection: str, 
+        current_tool: str, 
+        iteration: int, 
+        max_iterations: int
+    ) -> Optional[str]:
+        """
+        Let the agent decide the next tool based on reflection and helper prompts.
+        This replaces the programmatic sequence with intelligent decision making.
+        """
+        try:
+            # Get the helper prompt for the current tool to guide the agent
+            helper_prompt = self._get_helper_prompt_for_tool(current_tool)
+            
+            # Create a prompt for the agent to decide the next tool
+            decision_prompt = f"""
+            Based on your reflection and the helper guidance, decide which tool to use next.
+            
+            CURRENT TOOL: {current_tool}
+            ITERATION: {iteration}/{max_iterations}
+            REFLECTION: {reflection}
+            
+            HELPER GUIDANCE: {helper_prompt}
+            
+            AVAILABLE TOOLS:
+            - explanatory_drivers_tool: Analyze SHAP values and explanatory drivers
+            - operative_data_tool: Analyze operational KPIs (OTP, Load Factor, etc.)
+            - ncs_tool: Analyze operational incidents and NCS data
+            - verbatims_tool: Analyze customer feedback and verbatims
+            - routes_tool: Analyze route-specific performance
+            - customer_profile_tool: Analyze customer profile impact
+            
+            Based on your analysis, respond with ONLY the name of the next tool to use, or 'END' if the investigation is complete.
+            
+            NEXT TOOL:
+            """
+            
+            # Use the LLM to decide the next tool
+            response = await self.llm.agenerate([decision_prompt])
+            next_tool = response.generations[0][0].text.strip()
+            
+            # Clean up the response
+            if next_tool.lower() in ['end', 'none', 'complete', 'finished']:
+                return None
+            
+            # Validate that it's a valid tool
+            valid_tools = [
+                'explanatory_drivers_tool', 'operative_data_tool', 'ncs_tool',
+                'verbatims_tool', 'routes_tool', 'customer_profile_tool'
+            ]
+            
+            if next_tool in valid_tools:
+                return next_tool
+            else:
+                self.logger.warning(f"⚠️ Agent suggested invalid tool: {next_tool}, ending investigation")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"❌ Error determining next tool: {e}")
+            # Fallback: end investigation
+            return None
+    
+    def _get_helper_prompt_for_tool(self, tool_name: str) -> str:
+        """
+        Get the helper prompt for a specific tool from the YAML configuration.
+        This provides guidance to the agent on what to do next.
+        """
+        try:
+            # Get the tools_prompts from the configuration
+            tools_prompts = self.config.get('tools_prompts', {})
+            
+            if tool_name in tools_prompts:
+                tool_config = tools_prompts[tool_name]
+                if 'comparative' in tool_config:
+                    return tool_config['comparative']
+                elif 'single' in tool_config:
+                    return tool_config['single']
+                else:
+                    return tool_config.get('default', 'No specific guidance available.')
+            else:
+                return f"No helper prompt found for {tool_name}"
+                
+        except Exception as e:
+            self.logger.error(f"❌ Error getting helper prompt for {tool_name}: {e}")
+            return "Error retrieving helper guidance."
     
     async def _operative_data_tool(self, node_path: str, start_date, end_date, comparison_days: int = 7, comparison_mode: str = "mean") -> str:
         """
