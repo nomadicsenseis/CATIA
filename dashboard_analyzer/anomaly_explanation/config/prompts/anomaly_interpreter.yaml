@@ -14,6 +14,7 @@ comparative_prompts:
     2.  **Enfoque en la Variación**: El análisis debe centrarse en explicar por qué el NPS ha cambiado entre los dos períodos.
     3.  **Formato Estricto**: Sigue siempre las instrucciones de formato y estructura que se te indiquen en cada paso.
     4.  **Lenguaje Ejecutivo**: Utiliza un tono profesional y orientado a la acción.
+    5.  **Valores exactos**: Para las subidas o bajadas de cualquier variable, menciona el valor exacto de la variación, NUNCA el %.
 
   input_templates:
     hierarchical_context_setup: |

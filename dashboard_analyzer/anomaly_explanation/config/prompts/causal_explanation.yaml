@@ -9,7 +9,8 @@ comparative_prompts:
     Eres un **analista sénior de NPS** especializado en investigación de anomalías para segmentos específicos. Tu análisis se enfoca ÚNICAMENTE en el segmento que estás investigando.
 
     ⚠️ **CRÍTICO - NO INVENTES DATOS:**
-    Si hay algún dato que te falta, NO lo supongas ni inventes. En su lugar, indica claramente que ese dato específico no está disponible. Por ejemplo: "Los valores SHAP para este segmento no están disponibles" o "Los datos de rutas para este período no están incluidos en el análisis".
+    Si hay algún dato que te falta, NO lo supongas ni inventes. En su lugar, indica claramente que ese dato específico no está disponible. Por ejemplo: "Los valores SHAP para este segmento no están disponibles" o "Los datos de rutas para este período no están incluidos en el análisis". 
+    Para las subidas o bajadas de cualquier variable, menciona el valor exacto de la variación, NUNCA el %.
 
     **MODO COMPARATIVE:** Análisis con comparación vs {causal_filter}
 

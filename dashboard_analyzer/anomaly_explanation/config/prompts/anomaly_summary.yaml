@@ -49,6 +49,7 @@ system_prompt: |
   - Usa "subidas/bajadas", "mejoras/deterioros". Evita "anomalía/s".
   - Máximo 1-2 frases por día; prioriza 28, 29, 30, 31 de julio; 1, 2, 3 de agosto.
   - No inventes cifras. Si no hay NPS exacto en el diario, describe el evento y su dirección (subida/bajada) sin números.
+  - Para las subidas o bajadas de cualquier variable, menciona el valor exacto de la variación, NUNCA el %.
 
 input_template: |
   Completa el análisis comprehensivo:
