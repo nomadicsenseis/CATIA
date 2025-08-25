@@ -156,7 +156,6 @@ comparative_prompts:
     **📊 ANÁLISIS CAUSAL INTEGRADO:**
 
     **CAUSA 1: [Nombre específico de la causa]**
-    • **Segmento afectado:** ¿En qué parte específica del segmento se manifiesta?
     • **Evidencia de respaldo:**
       - **Explanatory Drivers:** ¿Qué drivers SHAP la confirman? (valores exactos)
       - **Datos Operativos:** ¿Qué métricas operativas la validan? (OTP, Load Factor, etc.)
@@ -176,13 +175,9 @@ comparative_prompts:
     Proporciona un párrafo fluido que conecte todas las causas identificadas, explicando:
     - ¿Cuál es la causa principal y cuáles son secundarias?
     - ¿Cómo se manifiestan las causas dentro del segmento analizado?
-    - **¿Los drivers SHAP son coherentes con las tendencias temporales NCS?** (mejoras vs deterioros vs {causal_filter})
     - ¿Qué evidencia es más sólida para cada una?
-    
-    **🔍 HIPÓTESIS DE CAUSA Y HERRAMIENTAS:**
-    • **Hipótesis principal:** [Descripción clara de la causa más probable]
-    • **Herramientas que la apoyan:** [Lista de herramientas que confirman esta hipótesis]
-    • **Herramientas que no aportan evidencia:** [Solo si es relevante mencionar limitaciones de datos]
+    - ¿Qué rutas específicas están afectadas por cada causa?
+    - ¿Qué perfiles de cliente son más reactivos a cada causa?
 
     **INSTRUCCIÓN CRÍTICA:** 
     - **VALIDEZ DE HIPÓTESIS:** Una hipótesis es válida si AL MENOS UNA herramienta la confirma con evidencia sólida. NO descartes hipótesis por falta de confirmación de otras herramientas.
@@ -214,8 +209,10 @@ comparative_prompts:
 
     **ESTRUCTURA DE RESPUESTA FINAL (OBLIGATORIA):**
 
+    Si se identifican múltiples causas, proporciona un análisis para cada una de ellas con la siguiente estructura.
+
     🎯 **1. CAUSA TANGIBLE**
-    Hipotesis final de causa/causas: [Describe aquí la hipótesis final]
+    Hipotesis final de causa: [Describe aquí la hipótesis final]
     - **Explanatory drivers:** [Detalla aquí los SHAPS y CSATS que apoyan o desmienten la hipótesis. Incluye valores numéricos.]
     - **Operative:** [Detalla aquí los datos de Load factor, mishandling, missconnections y OTP y cómo confirman o desmienten la hipótesis. Incluye valores numéricos.]
     - **Verbatims:** [Incluye aquí los comentarios directos de clientes que confirman o desmienten la hipótesis.]
@@ -318,81 +315,45 @@ single_prompts:
     - NO menciones SHAP o explanatory drivers
 
   synthesis_prompt: |
-    Basándote en el análisis de {node_path} para el período {start_date} a {end_date}, proporciona una síntesis integral.
-
-    IMPORTANTE: Este es un análisis de PERIODO ÚNICO. Enfócate en:
-    1. VALORES ABSOLUTOS: Usa valores absolutos (NPS = 50, OTP = 85%) no cambios
-    2. ANÁLISIS ESPECÍFICO: Analiza solo el segmento {node_path}
-    3. SIN COMPARACIÓN: No compares con otros períodos
-    4. SIN SHAP: No menciones valores SHAP o explanatory drivers
-
-    Formatea tu respuesta como:
-
-    **🎯 CAUSA TANGIBLE**
-    Factor específico que explica la anomalía durante este período
-    • Valores absolutos de métricas operativas (NPS, OTP, Load Factor)
-    • Aspectos operativos vs producto identificados
-    • Qué causas se descartaron y por qué
-    • Incidentes NCS más relevantes durante el período
-
-    **🌍 RUTAS AFECTADAS**  
-    Rutas específicas con problemas durante este período
-    • Lista de rutas con datos de NPS absoluto y sample size
-    • Tipos de vuelo (SH/LH) y clases de servicio
-    • Datos geográficos relevantes
-
-    **👥 PERFILES MÁS REACTIVOS**
-    Segmentos de cliente con mayor reactividad durante este período
-    • NPS absoluto por segmento (propósito, flota, residencia, codeshare)
-    • Spreads de valores en puntos
-    • Tamaños de muestra por segmento
-
-    5. **🔍 HIPÓTESIS DE CAUSA Y HERRAMIENTAS**
-    • **Hipótesis principal:** [Descripción clara de la causa más probable]
-    • **Herramientas que la apoyan:** [Lista de herramientas que confirman esta hipótesis]
-    • **Herramientas que no aportan evidencia:** [Solo si es relevante mencionar limitaciones de datos]
-
-    **INSTRUCCIONES CRÍTICAS:**
-    - **VALIDEZ DE HIPÓTESIS:** Una hipótesis es válida si AL MENOS UNA herramienta la confirma con evidencia sólida. NO descartes hipótesis por falta de confirmación de otras herramientas.
-    - **ENFOQUE POSITIVO:** Enfócate en las herramientas que SÍ confirman la hipótesis. Solo menciona limitaciones si es relevante para el contexto.
-    - **EJEMPLO CORRECTO:** "Hipótesis: Mishandling elevado. Confirmada por: operative_data_tool (21.8%), ncs_tool (7 incidentes de equipaje)."
-    - **EJEMPLO INCORRECTO:** "Hipótesis inválida porque routes_tool no tiene datos."
-    - **NO INCLUYAS ACCIONES RECOMENDADAS** ni sugerencias operativas. Solo reporta causas.
-    - Proporciona una explicación clara de qué causó la anomalía NPS durante este período específico usando solo valores absolutos.
-
-    **⛔ TERMINA AQUÍ - NO INCLUIR:**
-    - NO añadas secciones de "Conclusiones y Próximos Pasos"
-    - NO incluyas "Recomendaciones" 
-    - NO añadas sugerencias operativas
-    - NO incluyas acciones propuestas
-    - La respuesta debe terminar con la sección "HIPÓTESIS DE CAUSA Y HERRAMIENTAS"
-
-  final_synthesis_request: |
     **TAREA FINAL OBLIGATORIA:**
     Como paso final, consolida TODA la información recopilada en un único informe estructurado. Utiliza el siguiente formato de manera ESTRICTA y sin desviaciones. NO inventes datos; si una sección no tiene información, indícalo explícitamente con "DATOS NO DISPONIBLES".
 
-    **DATOS RECOPILADOS DURANTE LA INVESTIGACIÓN:**
+    **DATOS RECOLECTADOS DURANTE LA INVESTIGACIÓN:**
     {collected_data}
 
     **CONTEXTO NPS (OBLIGATORIO INCLUIR):**
-    - NPS Actual: {current_nps}
+    - NPS del período: {current_nps}
 
     **ESTRUCTURA DE RESPUESTA FINAL (OBLIGATORIA):**
 
+    Si se identifican múltiples causas, proporciona un análisis para cada una de ellas con la siguiente estructura.
+
     🎯 **1. CAUSA TANGIBLE**
-    Hipotesis final de causa/causas: [Describe aquí la hipótesis final]
-    - **Operative:** [Detalla aquí los datos de Load factor, mishandling, missconnections y OTP y cómo confirman o desmienten la hipótesis. Incluye valores numéricos.]
+    Hipótesis final de causa: [Describe aquí la hipótesis final]
+    - **Operative:** [Detalla aquí los datos de Load factor, mishandling, missconnections y OTP y cómo confirman o desmienten la hipótesis. Incluye valores numéricos absolutos del período.]
     - **Verbatims:** [Incluye aquí los comentarios directos de clientes que confirman o desmienten la hipótesis.]
-    - **NCS:** [Detalla aquí los datos de cancelaciones, reenvíos, etc., y cómo confirman o desmienten la hipótesis. Incluye números de incidentes.]
+    - **NCS:** [Detalla aquí los datos de cancelaciones, reenvíos, etc., y cómo confirman o desmienten la hipótesis. Incluye números de incidentes del período.]
 
     🎯 **2. RUTAS AFECTADAS**
-    - **Rutas de peor satisfacción (operativos):** [Lista de rutas con NPS.]
-    - **Rutas de los NCS:** [Lista de rutas con NPS.]
-    - **Rutas verbatims:** [Lista de rutas con NPS.]
+    - **Rutas de peor satisfacción (operativos):** [Lista de rutas con NPS absoluto del período.]
+    - **Rutas de los NCS:** [Lista de rutas con NPS absoluto del período.]
+    - **Rutas verbatims:** [Lista de rutas con NPS absoluto del período.]
     - **Alineación:** [Análisis de la alineación (o falta de ella) entre las rutas de las distintas fuentes y cuáles son las afectadas por cada causa.]
 
     🎯 **3. REACTIVIDAD DE CLIENTE**
-    - **Perfiles más reactivos:** [Detalla aquí los datos de customer_profile_tool para ver qué clientes han sido los más reactivos a las causas hipotetizadas.]
+    - **Perfiles más reactivos:** [Detalla aquí los datos de customer_profile_tool para ver qué clientes han sido los más reactivos a las causas hipotetizadas durante este período.]
+
+    **INSTRUCCIONES CRÍTICAS PARA PERIODO ÚNICO:**
+    - **ENFOQUE EN VALORES ABSOLUTOS:** Usa valores absolutos del período (NPS = 45, OTP = 82%) NO comparaciones
+    - **SIN SHAP:** No menciones valores SHAP o explanatory drivers
+    - **ANÁLISIS ESPECÍFICO:** Analiza solo el segmento {node_path} durante {start_date} a {end_date}
+    - **SIN COMPARACIÓN TEMPORAL:** No compares con otros períodos
+    - **VALIDEZ DE HIPÓTESIS:** Una hipótesis es válida si AL MENOS UNA herramienta la confirma con evidencia sólida
+    - **ENFOQUE POSITIVO:** Enfócate en las herramientas que SÍ confirman la hipótesis
+    - **FORMATO RUTAS:** Para cada ruta crítica, incluir: "RUTA: NPS X.X, [Touchpoint]: X.X, Pax XX"
+    - **EJEMPLO:** "MAD-JFK: NPS 45.2, OTP: 67.8, Pax 150"
+
+    NO hagas afirmaciones sin datos. Cada conclusión debe estar respaldada por números específicos del período analizado.
 
 # =============================================================================
 # TOOLS PROMPTS BY MODE
@@ -1536,102 +1497,6 @@ tools_prompts:
 
       **📈 SIGUIENTE PASO**: 
       La investigación está COMPLETA. Procede a la síntesis final.
-
-# =============================================================================
-# WORKFLOW GUIDANCE
-# =============================================================================
-  workflow_guidance:
-  operative: |
-    🔀 **FLUJO OPERATIVO** detectado
-    Drivers apuntan a problemas operacionales (OTP, retrasos, equipaje).
-
-    **Secuencia sugerida:**
-    1. `operative_data_tool` → validar deterioro en KPIs
-    2. `ncs_tool` → encontrar incidentes específicos  
-    3. `verbatims_tool` → confirmar percepción cliente
-    4. `routes_tool` → rutas más afectadas operacionalmente
-    5. `customer_profile_tool` → perfiles reactivos a operaciones
-
-  product: |
-    🔀 **FLUJO PRODUCTO** detectado  
-    Drivers apuntan a problemas de servicio/producto (tripulación, comida, confort).
-
-    **Secuencia sugerida:**
-    1. `verbatims_tool` (1ª ejecución) → identificar incidentes específicos de producto y rutas afectadas
-    2. `ncs_tool` → incidentes operacionales secundarios que afectaron servicio
-    3. `verbatims_tool` (2ª ejecución) → validar correlación entre rutas NCS vs rutas producto 
-    4. `routes_tool` → confirmar rutas con peor CSAT de drivers producto
-    5. `customer_profile_tool` → perfiles reactivos a servicio
-
-  mixed: |
-    🔀 **FLUJO MIXTO** detectado
-
-      Drivers muestran **problemas operacionales Y de producto** simultáneamente.
-
-      **🎯 ESTRATEGIA DE RAMAS INDEPENDIENTES:**
-      
-      **RAMA OPERATIVA (Completa):**
-      1. `operative_data_tool` → KPIs operativos deteriorados  
-      2. `ncs_tool` → incidentes operacionales específicos
-      3. `verbatims_tool` → validar correlación operativa
-      4. `routes_tool` → rutas operativas afectadas
-      5. `customer_profile_tool` → perfiles reactivos a operación
-      → **HIPÓTESIS OPERATIVA**: Causa + Incidentes + Verbatims + Rutas + Perfiles
-      
-      **RAMA PRODUCTO (Completa):**
-      1. `verbatims_tool` (1ª) → incidentes específicos de producto y rutas
-      2. `ncs_tool` → incidentes operacionales secundarios
-      3. `verbatims_tool` (2ª) → validar correlación producto
-      4. `routes_tool` → rutas con peor CSAT producto
-      5. `customer_profile_tool` → perfiles reactivos a producto  
-      → **HIPÓTESIS PRODUCTO**: Causa + Incidentes + Verbatims + Rutas + Perfiles
-
-      **🚨 METODOLOGÍA MIXTA:**
-      • Cada rama se ejecuta **COMPLETAMENTE** por separado
-      • Al final: **DOS hipótesis causales independientes** con evidencia completa
-      • Ambas hipótesis explican diferentes aspectos de la anomalía NPS mixta
-
-  fallback: |
-    🔀 **FLUJO EXPLORATORIO**
-
-    Drivers no conclusivos o ausentes. Investigación abierta sugerida.
-
-    **Exploración dirigida:**
-    1. `verbatims_tool` → patrones en comentarios no capturados
-    2. `operative_data_tool` → anomalías operacionales sutiles
-    3. `ncs_tool` → incidentes explicativos no evidentes
-    4. `routes_tool` → patrones geográficos inusuales
-    5. `customer_profile_tool` → segmentos con comportamiento atípico
-
-# =============================================================================
-# INVESTIGATION FLOW CONFIGURATION
-# =============================================================================
-investigation_flow:
-  max_iterations: 5
-  operative_touchpoints:
-  - OTP
-  - Delay
-  - Baggage
-  - Misconex
-  - Mishandling
-  - Load Factor
-  - Punctual
-  product_touchpoints:
-  - Crew
-  - Food
-  - Comfort
-  - Entertainment
-  - Seat
-  - Service
-  - Cleanliness
-  comparative_start_tool: explanatory_drivers_tool
-  single_start_tool: operative_data_tool
-  termination_criteria:
-  - Causa tangible clara identificada
-  - Segmento de clientes afectado determinado
-  - Todas las fuentes de datos relevantes agotadas
-  - Máximo de iteraciones alcanzado
-  - Errores de herramientas previenen investigación adicional
 
 # =============================================================================
 # TOOL DESCRIPTIONS

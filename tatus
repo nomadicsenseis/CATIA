@@ -1,1 +1,21 @@
-[33m27884b7[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/feat/local_execution[m[33m, [m[1;31mcatia/feat/local_execution[m[33m, [m[1;32mfeat/new_causal_workflows[m[33m, [m[1;32mfeat/local_execution[m[33m, [m[1;32mfeat/chrome_in_container[m[33m)[m feat: Implement new causal workflows with improved tool sequencing
+  clean-develop[m
+  develop[m
+  feat/chrome_in_container[m
+  feat/local_execution[m
+  feat/new_causal_workflows[m
+* [32mfeat/remove_programmatic_sequences[m
+  master[m
+  [31mremotes/catia/HEAD[m -> catia/main
+  [31mremotes/catia/clean-develop[m
+  [31mremotes/catia/develop[m
+  [31mremotes/catia/feat/local_execution[m
+  [31mremotes/catia/main[m
+  [31mremotes/catia/master[m
+  [31mremotes/origin/HEAD[m -> origin/main
+  [31mremotes/origin/catia[m
+  [31mremotes/origin/daily_analysis[m
+  [31mremotes/origin/develop[m
+  [31mremotes/origin/feat/local_execution[m
+  [31mremotes/origin/flexible_aggregation[m
+  [31mremotes/origin/main[m
+  [31mremotes/origin/master[m
