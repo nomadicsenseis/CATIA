@@ -744,7 +744,7 @@ class CausalExplanationAgent:
             return f"ERROR in operative data tool: {type(e).__name__}: {str(e)}"
     
     async def _operative_data_tool_correlation_analysis(self, node_path: str, operative_data: pd.DataFrame, target_date_str: str) -> str:
-        """Operative data tool with correlation analysis using a fixed baseline."""
+        """Operative data tool with correlation analysis using aggregated period data."""
         try:
             # Clean the data
             cleaned_data = operative_data.copy()
@@ -754,40 +754,29 @@ class CausalExplanationAgent:
                     cleaned_data[col] = cleaned_data[col].replace('', pd.NA)
                     cleaned_data[col] = pd.to_numeric(cleaned_data[col], errors='coerce')
 
-            # Convert date column to datetime objects for filtering
-            # Handle different possible date column names
-            date_col = None
-            if 'Date' in cleaned_data.columns:
-                date_col = 'Date'
-            elif 'Date_Master' in cleaned_data.columns:
-                date_col = 'Date_Master'
-            elif 'Date_Master[Date' in cleaned_data.columns:
-                date_col = 'Date_Master[Date'
-            
-            if date_col is None:
-                return f"❌ No date column found in operative data. Available columns: {list(cleaned_data.columns)}"
-            
-            # Standardize to 'Date' column
-            if date_col != 'Date':
-                cleaned_data['Date'] = cleaned_data[date_col]
-            
-            # Convert to datetime
-            cleaned_data['Date'] = pd.to_datetime(cleaned_data['Date'])
-            
-            # Get target date data
+            # Handle aggregated data by Period_Group (not individual dates)
+            if 'Period_Group' not in cleaned_data.columns:
+                return f"❌ No Period_Group column found in operative data. Available columns: {list(cleaned_data.columns)}"
+
+            # Convert target date to datetime for period identification
             target_date_dt = datetime.strptime(target_date_str, '%Y-%m-%d').date()
-            target_date_data = cleaned_data[cleaned_data['Date'].dt.date == target_date_dt]
 
-            if target_date_data.empty:
-                 return f"No operative data found for the specific date {target_date_str}"
-            
-            target_date_data = target_date_data.iloc[0]
+            # Sort data by Period_Group (most recent first)
+            cleaned_data = cleaned_data.sort_values('Period_Group', ascending=True)
 
-            # Calculate baseline average from the full dataset (excluding the target date itself)
-            baseline_data = cleaned_data[cleaned_data['Date'].dt.date < target_date_dt]
-            
-            if len(baseline_data) < 3:
-                return f"📊 **DATOS OPERATIVOS - ANÁLISIS CORRELACIÓN**\n📅 Fecha: {target_date_str}\n🎯 Segmento: {node_path}\n⚠️ Insuficientes datos para baseline (solo {len(baseline_data)} días disponibles)"
+            # Find the target period (most recent period = period 1)
+            # The data is already sorted by Period_Group ascending, so period 1 is the most recent
+            if cleaned_data.empty:
+                return f"No operative data found for {node_path}"
+
+            # Get target period data (most recent period)
+            target_period_data = cleaned_data.iloc[0]  # First row is most recent period
+
+            # Calculate baseline from previous periods (periods 2, 3, 4, etc.)
+            baseline_data = cleaned_data.iloc[1:]  # All rows except the most recent
+
+            if len(baseline_data) < 2:
+                return f"📊 **DATOS OPERATIVOS - ANÁLISIS PERIODO**\n📅 Fecha: {target_date_str}\n🎯 Segmento: {node_path}\n⚠️ Insuficientes períodos para baseline (solo {len(baseline_data)} períodos disponibles)"
             
             # Format correlation analysis results
             result_parts = []
@@ -797,18 +786,29 @@ class CausalExplanationAgent:
             result_parts.append("")
             result_parts.append("**VALORES ABSOLUTOS Y CORRELACIÓN CON NPS:**")
             
-            # Analyze each metric for correlation with NPS anomaly
+            # Analyze each metric for correlation with NPS anomaly using period data
             correlation_analysis = []
             metrics_analysis = []
+
+            # Get period information for context
+            target_period = target_period_data.get('Period_Group', 'N/A')
+            num_baseline_periods = len(baseline_data)
+            target_min_date = target_period_data.get('Min_Date', 'N/A')
+            target_max_date = target_period_data.get('Max_Date', 'N/A')
+
+            result_parts.append(f"📊 Período Objetivo: {target_period}")
+            result_parts.append(f"📅 Rango del período: {target_min_date} a {target_max_date}")
+            result_parts.append(f"📈 Períodos baseline: {num_baseline_periods}")
+            result_parts.append("")
             
             for metric in numeric_columns:
                 if metric in cleaned_data.columns:
                     baseline_values = baseline_data[metric].dropna()
-                    day_value = target_date_data.get(metric)
+                    period_value = target_period_data.get(metric)
                     
-                    if not baseline_values.empty and not pd.isna(day_value) and len(baseline_values) >= 3:
+                    if not baseline_values.empty and not pd.isna(period_value) and len(baseline_values) >= 2:
                         baseline_avg = baseline_values.mean()
-                        delta = day_value - baseline_avg
+                        delta = period_value - baseline_avg
                         
                         # Determine significance threshold
                         thresholds = {
@@ -824,7 +824,7 @@ class CausalExplanationAgent:
                         significance = " ⚠️" if is_significant else ""
                         
                         # Format metric line
-                        metric_line = f"• {metric}: {day_value:.1f}% (media: {baseline_avg:.1f}%, {direction}{abs(delta):.1f}pts){significance}"
+                        metric_line = f"• {metric}: {period_value:.1f}% (media: {baseline_avg:.1f}%, {direction}{abs(delta):.1f}pts){significance}"
                         metrics_analysis.append(metric_line)
                         
                         # Analyze correlation with NPS anomaly (assuming negative NPS anomaly)
@@ -968,7 +968,7 @@ class CausalExplanationAgent:
                 result_parts.append("❌ No se encontraron datos de rutas con NPS para este período.")
             else:
                 # Clean column names (remove brackets)
-                routes_data.columns = [col.replace('[', '').replace(']', '') for col in routes_data.columns]
+                routes_data = self._safe_clean_columns(routes_data, method="replace")
                 
                 # Find key columns
                 route_col = self._find_column(routes_data, ['route'])
@@ -1346,27 +1346,96 @@ class CausalExplanationAgent:
                     reflection = reflection_result.get("reflection", "")
                     next_tool_code = reflection_result.get("next_tool_code", "")
                 
-                if reflection:
-                    self.tracker.add_explanation(reflection)
-                    message_history.create_and_add_message(
-                        content=reflection,
-                        message_type=MessageType.AI,
-                        agent=AgentName.CONVERSATIONAL
+                    if reflection:
+                        self.tracker.add_explanation(reflection)
+                        message_history.create_and_add_message(
+                            content=reflection,
+                            message_type=MessageType.AI,
+                            agent=AgentName.CONVERSATIONAL
+                        )
+                        self.tracker.log_message("AI", f"REFLECTION: {reflection}")
+                        self.logger.info(f"💭 Reflection captured for {current_tool}")
+                        
+                        # Execute next tool code if provided
+                        if next_tool_code:
+                            self.logger.info(f"🔄 Executing next tool code: {next_tool_code}")
+
+                            # Execute the tool based on the code from reflection
+                            try:
+                                if next_tool_code == "operative_data_tool":
+                                    current_tool = "operative_data_tool"
+                                elif next_tool_code == "ncs_tool":
+                                    current_tool = "ncs_tool"
+                                elif next_tool_code == "verbatims_tool":
+                                    current_tool = "verbatims_tool"
+                                elif next_tool_code == "routes_tool":
+                                    current_tool = "routes_tool"
+                                elif next_tool_code == "customer_profile_tool":
+                                    current_tool = "customer_profile_tool"
+                                else:
+                                    self.logger.warning(f"⚠️ Unknown tool code: {next_tool_code}")
+                                    # Let agent decide the next tool based on reflection
+                                    current_tool = await self._determine_next_tool_from_reflection(
+                                        reflection, current_tool, iteration, max_iterations
+                                    )
+                            except Exception as e:
+                                self.logger.error(f"❌ Error executing tool code {next_tool_code}: {e}")
+                                # Let agent decide the next tool based on reflection
+                                current_tool = await self._determine_next_tool_from_reflection(
+                                    reflection, current_tool, iteration, max_iterations
+                                )
+
+                            # Execute the tool and get results
+                            if current_tool:
+                                self.logger.info(f"🔄 Executing tool: {current_tool}")
+                                tool_result = await self._execute_single_period_tool(
+                                    current_tool, node_path, start_date, end_date, iteration
+                                )
+
+                                # Store tool context
+                                self.tracker.set_tool_context(current_tool, tool_result)
+
+                                # Get reflection for this tool execution
+                                reflection_result = await self._get_clean_reflection(
+                        system_prompt=system_prompt,
+                        tool_name=current_tool,
+                        tool_result=tool_result,
+                                    message_history=message_history
                     )
-                    self.tracker.log_message("AI", f"REFLECTION: {reflection}")
-                    self.logger.info(f"💭 Reflection captured for {current_tool}")
                     
-                    # Execute next tool code if provided
-                    if next_tool_code:
-                        self.logger.info(f"🔄 Executing next tool code: {next_tool_code}")
-                        # TODO: Implement execution of next_tool_code
-                        # This could be a Python code execution or tool call
+                                if reflection_result and isinstance(reflection_result, dict):
+                                    reflection = reflection_result.get("reflection", "")
+                                    next_tool_code = reflection_result.get("next_tool_code", "")
+
+                    if reflection:
+                        self.tracker.add_explanation(reflection)
+                        message_history.create_and_add_message(
+                            content=reflection,
+                            message_type=MessageType.AI,
+                            agent=AgentName.CONVERSATIONAL
+                        )
+                        self.tracker.log_message("AI", f"REFLECTION: {reflection}")
+                        self.logger.info(f"💭 Reflection captured for {current_tool}")
+
+                        # Continue with next iteration
+                        continue
+                    else:
+                        # Let the agent decide the next tool based on reflection and helper prompts
+                        current_tool = await self._determine_next_tool_from_reflection(
+                            reflection, current_tool, iteration, max_iterations
+                        )
                     
+                    if current_tool:
+                        self.logger.info(f"🔄 Agent decided next tool: {current_tool}")
+                    else:
+                        self.logger.info(f"✅ Agent decided to end investigation")
+                        break
+
                 else:
                     self.logger.warning(f"⚠️ No reflection captured for {current_tool}")
                     # ❌ NO FALLBACK - INVESTIGATION MUST END IF AGENT CANNOT REFLECT
                     self.logger.error(f"❌ Investigation cannot continue without agent reflection")
-                    break
+                    break   
                 
             # Final synthesis for single period
             try:
@@ -1580,93 +1649,94 @@ class CausalExplanationAgent:
                     reflection = reflection_result.get("reflection", "")
                     next_tool_code = reflection_result.get("next_tool_code", "")
                 
-                if reflection:
-                    self.tracker.add_explanation(reflection)
-                    message_history.create_and_add_message(
-                        content=reflection,
-                        message_type=MessageType.AI,
-                        agent=AgentName.CONVERSATIONAL
-                    )
-                    self.tracker.log_message("AI", f"REFLECTION: {reflection}")
-                    self.logger.info(f"💭 Reflection captured for {current_tool}")
-                    
-                    # Execute next tool code if provided
-                    if next_tool_code:
-                        self.logger.info(f"🔄 Executing next tool code: {next_tool_code}")
-                        
-                        # Execute the tool based on the code from reflection
-                        try:
-                            if next_tool_code == "explanatory_drivers_tool":
-                                current_tool = "explanatory_drivers_tool"
-                            elif next_tool_code == "operative_data_tool":
-                                current_tool = "operative_data_tool"
-                            elif next_tool_code == "ncs_tool":
-                                current_tool = "ncs_tool"
-                            elif next_tool_code == "verbatims_tool":
-                                current_tool = "verbatims_tool"
-                            elif next_tool_code == "routes_tool":
-                                current_tool = "routes_tool"
-                            elif next_tool_code == "customer_profile_tool":
-                                current_tool = "customer_profile_tool"
-                            else:
-                                self.logger.warning(f"⚠️ Unknown tool code: {next_tool_code}")
+                    if reflection:
+                        self.tracker.add_explanation(reflection)
+                        message_history.create_and_add_message(
+                            content=reflection,
+                            message_type=MessageType.AI,
+                            agent=AgentName.CONVERSATIONAL
+                        )
+                        self.tracker.log_message("AI", f"REFLECTION: {reflection}")
+                        self.logger.info(f"💭 Reflection captured for {current_tool}")
+
+                        # Execute next tool code if provided
+                        if next_tool_code:
+                            self.logger.info(f"🔄 Executing next tool code: {next_tool_code}")
+                            
+                            # Execute the tool based on the code from reflection
+                            try:
+                                if next_tool_code == "explanatory_drivers_tool":
+                                    current_tool = "explanatory_drivers_tool"
+                                elif next_tool_code == "operative_data_tool":
+                                    current_tool = "operative_data_tool"
+                                elif next_tool_code == "ncs_tool":
+                                    current_tool = "ncs_tool"
+                                elif next_tool_code == "verbatims_tool":
+                                    current_tool = "verbatims_tool"
+                                elif next_tool_code == "routes_tool":
+                                    current_tool = "routes_tool"
+                                elif next_tool_code == "customer_profile_tool":
+                                    current_tool = "customer_profile_tool"
+                                else:
+                                    self.logger.warning(f"⚠️ Unknown tool code: {next_tool_code}")
+                                    # Fallback to agent decision
+                                    current_tool = await self._determine_next_tool_from_reflection(
+                                        reflection, current_tool, iteration, max_iterations
+                                    )
+                            except Exception as e:
+                                self.logger.error(f"❌ Error executing tool code {next_tool_code}: {e}")
                                 # Fallback to agent decision
                                 current_tool = await self._determine_next_tool_from_reflection(
                                     reflection, current_tool, iteration, max_iterations
                                 )
-                        except Exception as e:
-                            self.logger.error(f"❌ Error executing tool code {next_tool_code}: {e}")
-                            # Fallback to agent decision
-                            current_tool = await self._determine_next_tool_from_reflection(
-                                reflection, current_tool, iteration, max_iterations
-                            )
-                        
-                        # Execute the tool and get results
-                        if current_tool:
-                            self.logger.info(f"🔄 Executing tool: {current_tool}")
-                            tool_result = await self._execute_tool_unified(
-                                current_tool, node_path, start_date, end_date, iteration, "comparative"
-                            )
                             
-                            # Store tool context
-                            self.tracker.set_tool_context(current_tool, tool_result)
-                            
-                            # Get reflection for this tool execution
-                            reflection_result = await self._get_clean_reflection(
-                                system_prompt=system_prompt,
-                                tool_name=current_tool,
-                                tool_result=tool_result,
-                                message_history=message_history,
-                                mode="comparative"
-                            )
-                            
-                            if reflection_result and isinstance(reflection_result, dict):
-                                reflection = reflection_result.get("reflection", "")
-                                next_tool_code = reflection_result.get("next_tool_code", "")
-                            
-                            if reflection:
-                                self.tracker.add_explanation(reflection)
-                                message_history.create_and_add_message(
-                                    content=reflection,
-                                    message_type=MessageType.AI,
-                                    agent=AgentName.CONVERSATIONAL
+                            # Execute the tool and get results
+                            if current_tool:
+                                self.logger.info(f"🔄 Executing tool: {current_tool}")
+                                tool_result = await self._execute_tool_unified(
+                                    current_tool, node_path, start_date, end_date, iteration, "comparative"
                                 )
-                                self.tracker.log_message("AI", f"REFLECTION: {reflection}")
-                                self.logger.info(f"💭 Reflection captured for {current_tool}")
-                            
-                            # Continue with next iteration
-                            continue
+                                
+                                # Store tool context
+                                self.tracker.set_tool_context(current_tool, tool_result)
+                                
+                                # Get reflection for this tool execution
+                                reflection_result = await self._get_clean_reflection(
+                        system_prompt=system_prompt,
+                        tool_name=current_tool,
+                        tool_result=tool_result,
+                                    message_history=message_history,
+                                    mode="comparative"
+                    )
+                    
+                                if reflection_result and isinstance(reflection_result, dict):
+                                    reflection = reflection_result.get("reflection", "")
+                                    next_tool_code = reflection_result.get("next_tool_code", "")
+
+                    if reflection:
+                        self.tracker.add_explanation(reflection)
+                        message_history.create_and_add_message(
+                            content=reflection,
+                            message_type=MessageType.AI,
+                            agent=AgentName.CONVERSATIONAL
+                        )
+                        self.tracker.log_message("AI", f"REFLECTION: {reflection}")
+                        self.logger.info(f"💭 Reflection captured for {current_tool}")
+
+                        # Continue with next iteration
+                        continue
                     else:
                         # Let the agent decide the next tool based on reflection and helper prompts
                         current_tool = await self._determine_next_tool_from_reflection(
                             reflection, current_tool, iteration, max_iterations
                         )
-                    
-                    if current_tool:
-                        self.logger.info(f"🔄 Agent decided next tool: {current_tool}")
-                    else:
-                        self.logger.info(f"✅ Agent decided to end investigation")
-                        break
+                        
+                        if current_tool:
+                            self.logger.info(f"🔄 Agent decided next tool: {current_tool}")
+                        else:
+                            self.logger.info(f"✅ Agent decided to end investigation")
+                            break
+
                 else:
                     self.logger.warning(f"⚠️ No reflection captured for {current_tool}")
                     # Fallback: end investigation if no reflection

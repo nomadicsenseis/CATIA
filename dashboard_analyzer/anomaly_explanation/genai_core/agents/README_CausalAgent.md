@@ -4,6 +4,22 @@
 
 El `CausalExplanationAgent` es el agente responsable de **investigar anomalías en un segmento específico** mediante el análisis de múltiples fuentes de datos operativos y de experiencia del cliente. Forma parte del sistema de análisis de anomalías y proporciona explicaciones causales detalladas.
 
+## 🆕 **ÚLTIMAS MEJORAS (Agosto 2025)**
+
+### **✅ Arreglos Implementados:**
+- **Modo Single Period completamente funcional** - Todas las herramientas ejecutándose correctamente
+- **Autonomía total del agente** - Decisiones basadas en reflexiones, sin secuencias hardcodeadas
+- **Chatbot fallback implementado** - Verbatims usa chatbot con fallback a PBI
+- **Correlación operativa mejorada** - Mean anomaly detection con análisis de correlación
+- **Robustez de collectors** - Manejo seguro de valores None y errores de sintaxis
+
+### **🔧 Problemas Resueltos:**
+- **Error replace() en PBI collector** - Solucionado manejo de None en modo single
+- **Fallas en routes_tool** - Implementado _safe_clean_columns
+- **Errores en customer_profile_tool** - Limpieza de columnas robusta
+- **Flujo next_tool_code** - Implementado en modo single period
+- **Errores de sintaxis** - Múltiples arreglos de indentación y lógica
+
 ---
 
 ## 🎯 **MODOS DE OPERACIÓN**
@@ -14,11 +30,13 @@ El `CausalExplanationAgent` es el agente responsable de **investigar anomalías 
 - **Herramienta inicial:** `explanatory_drivers_tool`
 - **Comparación:** Dinámico según `causal_filter` (L7d, LM, vs Sel. Period)
 
-### **📈 SINGLE MODE**
+### **📈 SINGLE MODE** 🆕 **(Completamente funcional)**
 - **Propósito:** Analizar un período específico de forma aislada
 - **Enfoque:** Valores absolutos con análisis de correlación
 - **Herramienta inicial:** `operative_data_tool`
 - **Comparación:** Solo para análisis de correlación con NPS
+- **Estado:** ✅ **Todas las herramientas funcionando correctamente**
+- **Autonomía:** ✅ **Agente decide flujo completo basado en reflexiones**
 
 ---
 
@@ -34,12 +52,17 @@ async def _operative_data_tool(node_path, start_date, end_date, comparison_mode)
 - **Output:** Cambios relativos (ej: "OTP bajó 3 pts vs L7d")
 - **Métricas:** Load Factor, OTP15_adjusted, Misconex, Mishandling
 
-#### **Single Mode:**
+#### **Single Mode:** 🆕 **(Mejorado con Mean Anomaly Detection)**
 ```python
 async def _operative_data_tool_single_period(node_path, start_date, end_date)
 ```
-- **Función:** Valores absolutos + análisis de correlación con NPS
+- **Función:** Valores absolutos + análisis de correlación con NPS usando mean anomaly detection
 - **Output:** Valores absolutos + correlación (ej: "OTP = 85%, correlaciona con caída NPS")
+- **Análisis mejorado:**
+  - 📊 **Target Period**: 14 días que contienen la fecha NPS
+  - 📊 **Baseline**: 173 períodos anteriores de 14 días cada uno
+  - 📈 **Mean Calculation**: Media de cada métrica operativa vs baseline
+  - ⚠️ **Correlaciones automáticas** con umbrales de significancia
 - **Correlaciones:**
   - ✅ **OTP ↓**: Correlaciona con caída NPS (peor puntualidad)
   - ✅ **Misconex/Mishandling ↑**: Correlaciona con caída NPS (más incidentes)
@@ -83,7 +106,7 @@ async def _routes_tool_single_period(node_path, start_date, end_date, min_survey
 
 ---
 
-### **4. 💬 VERBATIMS_TOOL**
+### **4. 💬 VERBATIMS_TOOL** 🆕 **(Con Chatbot Integration)**
 
 #### **Comparative Mode:**
 ```python
@@ -92,11 +115,16 @@ async def _verbatims_tool(node_path, start_date, end_date)
 - **Función:** Compara temas de verbatims entre períodos
 - **Output:** Cambios en sentimientos y temas principales
 
-#### **Single Mode:**
+#### **Single Mode:** 🆕 **(Chatbot con Fallback)**
 ```python
 async def _verbatims_tool_single_period(node_path, start_date, end_date)
 ```
-- **Función:** Análisis temático del período específico
+- **Función:** Análisis temático del período específico con integración chatbot
+- **Implementación mejorada:**
+  - 🤖 **Primero intenta chatbot** - Conexión HTTP a `https://nps.chatbot.iberia.es/api/verbatims`
+  - 🔐 **Autenticación JWT** - Usa `chatbot_jwt_token` para autenticación
+  - 📊 **Fallback a PBI** - Si chatbot falla, usa Power BI collector
+  - ⚠️ **Manejo robusto** - Gestiona errores de red, timeouts, tokens expirados
 - **Output:** Sentimientos y temas del período sin comparación
 
 ---
@@ -159,7 +187,7 @@ tools_prompts:
 
 ---
 
-## 🔄 **FLUJO DE INVESTIGACIÓN**
+## 🔄 **FLUJO DE INVESTIGACIÓN** 🆕 **(Autónomo)**
 
 ### **Comparative Mode:**
 ```
@@ -171,13 +199,19 @@ tools_prompts:
 6. customer_profile_tool → Identifica perfiles reactivos
 ```
 
-### **Single Mode:**
+### **Single Mode:** 🆕 **(Flujo autónomo, no hardcodeado)**
 ```
-1. operative_data_tool → Valores absolutos + correlación
-2. ncs_tool → Incidentes del período
-3. routes_tool → NPS por rutas
-4. verbatims_tool → Temas del período
-5. customer_profile_tool → Perfiles por NPS
+🤖 Agente decide herramienta inicial (operative_data_tool)
+├── 📊 operative_data_tool → Valores absolutos + correlación mean anomaly
+├── 📋 ncs_tool → Incidentes del período
+├── ✈️ routes_tool → NPS por rutas
+├── 💬 verbatims_tool → Temas del período (chatbot + fallback)
+├── 👥 customer_profile_tool → Perfiles por NPS
+└── 🧠 Reflexión → Decide si continuar o terminar
+
+✅ El agente evalúa cada resultado y decide la siguiente herramienta
+✅ No hay secuencia fija - completamente adaptativo
+✅ Termina cuando identifica causa tangible + perfiles afectados
 ```
 
 ---
@@ -190,12 +224,14 @@ tools_prompts:
 - **`node_path`**: Segmento a analizar (ej: "Global/LH/Economy")
 - **`detection_mode`**: `"mean"` | `"vslast"` | `"target"`
 
-### **Criterios de Terminación:**
-- Causa tangible clara identificada
-- Segmento de clientes afectado determinado
-- Todas las fuentes de datos relevantes agotadas
-- Máximo de iteraciones alcanzado (5)
-- Errores de herramientas previenen investigación adicional
+### **Criterios de Terminación:** 🆕 **(Decisión autónoma del agente)**
+- 🤖 **El agente decide terminar** cuando considera que tiene suficiente evidencia
+- 📊 **Causa tangible clara identificada** - Métricas operativas correlacionadas
+- 👥 **Segmento de clientes afectado determinado** - Perfiles reactivos identificados
+- 🔄 **Todas las fuentes de datos relevantes agotadas** - Herramientas ejecutadas según necesidad
+- 📝 **Reflexión concluyente** - Agente indica "TERMINAR" o "END"
+- ⚠️ **Máximo de iteraciones alcanzado** (5) - Límite de seguridad
+- ❌ **Errores de herramientas previenen investigación adicional**
 
 ---
 
@@ -275,6 +311,34 @@ tools_prompts:
 - `_get_tool_prompt(tool_name, mode)` - Prompts específicos de tools
 - `_get_reflection_prompt(mode)` - Prompts de reflexión
 - `_get_synthesis_prompt(mode)` - Prompts de síntesis
+
+---
+
+## 🔧 **MEJORAS TÉCNICAS IMPLEMENTADAS**
+
+### **🛠️ Robustez de Collectors:**
+- **`_safe_clean_columns()`**: Manejo seguro de valores `None` en limpieza de columnas
+- **PBI Collector**: Solución de error `replace()` con `None` values en modo single
+- **Chatbot Integration**: Conexión HTTP robusta con fallback a PBI
+- **Error Handling**: Gestión completa de timeouts, tokens expirados, errores de red
+
+### **🤖 Autonomía del Agente:**
+- **Flujo `next_tool_code`**: Implementado en modo single period
+- **Decisiones basadas en reflexiones**: No hay secuencias hardcodeadas
+- **Message History**: Reflexiones correctamente almacenadas para síntesis
+- **Parseo robusto**: Manejo de respuestas LLM con formato estructurado
+
+### **📊 Análisis Mejorado:**
+- **Mean Anomaly Detection**: Análisis de correlación con períodos baseline
+- **Target vs Baseline**: Comparación automática con umbrales de significancia
+- **Correlaciones automáticas**: Identificación de métricas que explican NPS
+- **Debug logging**: Logs detallados para troubleshooting
+
+### **🔄 Integración de Herramientas:**
+- **Unified execution**: `_execute_tool_unified()` maneja todos los modos
+- **Modo single period**: Todas las herramientas funcionando correctamente
+- **Fallback mechanisms**: Recuperación automática de fallos
+- **Data validation**: Verificación de datos antes del análisis
 
 ---
 

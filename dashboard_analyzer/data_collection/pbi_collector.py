@@ -866,7 +866,7 @@ class PBIDataCollector:
             query = query.replace('__HAUL_FILTER__', haul_filter)
             
             # Replace comparison filter placeholder
-            query = query.replace('__COMPARISON_FILTER__', comparison_filter)
+            query = query.replace('__COMPARISON_FILTER__', comparison_filter or "")
 
             # Handle "vs Sel. Period" dynamic filter block
             if comparison_filter == "vs Sel. Period" and comparison_start_date and comparison_end_date:
@@ -919,7 +919,7 @@ class PBIDataCollector:
             f'\'Date_Master\'[Date] >= date({start_date.year},{start_date.month},{start_date.day}) && \'Date_Master\'[Date] <= date({end_date.year},{end_date.month},{end_date.day})'
         ).replace(
             '__COMPARISON_FILTER__',
-            comparison_filter
+            comparison_filter or ""
         ).replace(
             '__CURRENT_YEAR__', str(start_date.year)
         ).replace(
@@ -1034,7 +1034,7 @@ class PBIDataCollector:
         ).replace(
             '__DIMENSION_NAME__', profile_dimension
         ).replace(
-            '__COMPARISON_FILTER__', comparison_filter
+            '__COMPARISON_FILTER__', comparison_filter or ""
         ).replace(
             '__CURRENT_YEAR__', str(start_date.year)
         ).replace(
