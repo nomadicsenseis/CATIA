@@ -1,42 +1,30 @@
 {
-    "name": "NPS Dashboard Analyzer",
-    "build": {
-        "context": "..",
-        "dockerfile": "../Dockerfile"
+  "name": "NPS Anomaly Detection",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.11"
     },
-    "workspaceFolder": "/app",
-    "workspaceMount": "source=${localWorkspaceFolder},target=/app,type=bind,consistency=cached",
-    "customizations": {
-        "vscode": {
-            "extensions": [
-                "ms-python.python",
-                "ms-python.vscode-pylance",
-                "ms-azuretools.vscode-docker",
-                "ms-python.black-formatter",
-                "ms-python.isort"
-            ],
-            "settings": {
-                "python.defaultInterpreterPath": "/opt/conda/bin/python",
-                "python.pythonPath": "/opt/conda/bin/python",
-                "python.linting.enabled": true,
-                "python.linting.pylintEnabled": true,
-                "python.formatting.provider": "black",
-                "python.terminal.activateEnvironment": true,
-                "python.analysis.autoSearchPaths": true,
-                "python.analysis.extraPaths": [
-                    "/app"
-                ],
-                "python.terminal.activateEnvInCurrentTerminal": true,
-                "python.condaPath": "/opt/conda/bin/conda"
-            }
-        }
-    },
-    "forwardPorts": [],
-    "postCreateCommand": "/opt/conda/bin/python -c 'import pandas, numpy, matplotlib, sklearn; print(\"All libraries installed successfully!\")'",
-    "postStartCommand": "conda init bash && echo 'conda activate base' >> ~/.bashrc",
-    "containerEnv": {
-        "PYTHONPATH": "/app",
-        "PATH": "/opt/conda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-    },
-    "shutdownAction": "stopContainer"
-} 
+    "ghcr.io/devcontainers/features/aws-cli:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.black-formatter",
+        "ms-python.flake8",
+        "ms-toolsai.jupyter",
+        "redhat.vscode-yaml",
+        "ms-vscode.vscode-json"
+      ]
+    }
+  },
+  "mounts": [
+    "source=${localWorkspaceFolder}/.aws,target=/root/.aws,type=bind,consistency=cached"
+  ],
+  "forwardPorts": [8000, 8080],
+  "postCreateCommand": "pip install -r requirements.txt",
+  "remoteUser": "root"
+}

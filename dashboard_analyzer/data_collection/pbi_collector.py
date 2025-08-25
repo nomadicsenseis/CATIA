@@ -1177,3 +1177,65 @@ class PBIDataCollector:
         except Exception as e:
             self.logger.error(f"❌ Error collecting routes dictionary: {e}")
             return pd.DataFrame()
+
+    async def collect_customer_profile_for_date_range(
+        self, 
+        node_path: str, 
+        start_date: datetime, 
+        end_date: datetime, 
+        profile_dimension: str = "Channel",
+        comparison_filter: str = "vs L7d",
+        comparison_start_date: datetime = None,
+        comparison_end_date: datetime = None
+    ) -> pd.DataFrame:
+        """
+        Collect customer profile data for a specific date range and dimension
+        
+        Args:
+            node_path: Node path for filtering
+            start_date: Start date for analysis
+            end_date: End date for analysis
+            profile_dimension: Dimension to analyze (e.g., "Channel", "Business/Leisure", "Fleet")
+            comparison_filter: Comparison filter (e.g., "vs L7d", "vs LM")
+            comparison_start_date: Start date for comparison period
+            comparison_end_date: End date for comparison period
+            
+        Returns:
+            DataFrame with customer profile data
+        """
+        try:
+            self.logger.info(f"👥 Collecting customer profile data for {node_path}")
+            self.logger.info(f"📅 Period: {start_date.date()} to {end_date.date()}")
+            self.logger.info(f"🔍 Dimension: {profile_dimension}")
+            self.logger.info(f"⚖️ Comparison: {comparison_filter}")
+            
+            # Get filters for this node using existing method
+            cabins, companies, hauls = self._get_node_filters(node_path)
+            
+            # Generate the DAX query
+            query = self._get_customer_profile_range_query(
+                cabins=cabins,
+                companies=companies,
+                hauls=hauls,
+                start_date=start_date,
+                end_date=end_date,
+                profile_dimension=profile_dimension,
+                comparison_filter=comparison_filter,
+                comparison_start_date=comparison_start_date,
+                comparison_end_date=comparison_end_date
+            )
+            
+            # Execute the query
+            result = await self._execute_query_async(query)
+            
+            if result is not None and not result.empty:
+                self.logger.info(f"✅ Collected customer profile data: {len(result)} records")
+                self.logger.debug(f"Columns: {list(result.columns)}")
+                return result
+            else:
+                self.logger.warning("❌ Customer profile query returned empty result")
+                return pd.DataFrame()
+                
+        except Exception as e:
+            self.logger.error(f"❌ Error collecting customer profile data: {e}")
+            return pd.DataFrame()

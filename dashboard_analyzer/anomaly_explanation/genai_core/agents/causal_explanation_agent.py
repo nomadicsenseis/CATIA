@@ -618,40 +618,7 @@ class CausalExplanationAgent:
         except Exception as e:
             return f"Error in explanatory drivers analysis: {str(e)}"
 
-    def _generate_investigative_guidance(self, tool_name: str, iteration: int, mode: str = "comparative") -> Optional[str]:
-        """Generate investigative guidance for tool and mode"""
-        # First try to get tool-specific prompt from new structure
-        tool_prompt = self._get_tool_prompt(tool_name, mode)
-        if tool_prompt:
-            return tool_prompt
-        
-        # Check if this is a dynamic routes call after NCS/verbatims (backwards compatibility)
-        if (tool_name == "routes_tool" and self.tracker.last_tool_context and 
-            self.tracker.last_tool_context['tool_name'] in ['ncs_tool', 'verbatims_tool']):
-            
-            # Use specific helper for routes after NCS or verbatims
-            last_tool = self.tracker.last_tool_context['tool_name']
-            if last_tool == 'ncs_tool':
-                return self.config.get('helper_prompts', {}).get('investigative_guidance', {}).get('routes_tool_after_ncs', '')
-            elif last_tool == 'verbatims_tool':
-                return self.config.get('helper_prompts', {}).get('investigative_guidance', {}).get('routes_tool_after_verbatims', '')
-        
-        # Standard guidance mapping (backwards compatibility)
-        guidance_map = {
-            "explanatory_drivers_tool": "explanatory_drivers_guidance",
-            "verbatims_tool": "verbatims_guidance", 
-            "ncs_tool": "ncs_guidance",
-            "routes_tool": "routes_guidance",
-            "customer_profile_tool": "customer_profile_tool",
-            "operative_data_tool": "operative_data_guidance"
-        }
-        
-        guidance_key = guidance_map.get(tool_name)
-        helper_prompts = self.config.get('helper_prompts', {}).get('investigative_guidance', {})
-        if guidance_key and guidance_key in helper_prompts:
-            return helper_prompts[guidance_key]
-        
-        return f"Analiza según los 3 objetivos para {tool_name}"
+
     
     def _determine_next_tool_dynamic(self, current_tool: str, iteration: int, max_tools: int) -> Optional[str]:
         """Determine next tool dynamically based on context and identified routes"""
@@ -1291,20 +1258,68 @@ class CausalExplanationAgent:
             )
             self.tracker.log_message("USER", user_input)
             
-            # Single period tool sequence (no explanatory drivers)
-            single_period_sequence = [
-                "operative_data_tool",
-                "ncs_tool", 
-                "routes_tool",
-                "verbatims_tool",
-                "customer_profile_tool"
-            ]
+            # FIRST: Let the agent decide which tool to start with based on the initial context
+            self.logger.info("🤔 First step: Agent deciding initial tool to execute (single period)...")
             
+            # Create prompt for initial tool decision
+            initial_decision_prompt = f"""
+            Based on the investigation parameters and context, decide which tool to execute FIRST for single period analysis.
+            
+            INVESTIGATION CONTEXT:
+            - Node Path: {node_path}
+            - Period: {start_date} to {end_date}
+            - Anomaly Type: {anomaly_type}
+            - Anomaly Magnitude: {anomaly_magnitude}
+            - Current NPS: {current_nps}
+            - Baseline NPS: {baseline_nps}
+            - NPS Difference: {nps_difference}
+            
+            AVAILABLE TOOLS FOR SINGLE PERIOD:
+            - operative_data_tool: Analyze operational KPIs (OTP, Load Factor, etc.) for the specific period
+            - ncs_tool: Analyze operational incidents and NCS data for the specific period
+            - routes_tool: Analyze route-specific performance for the specific period
+            - verbatims_tool: Analyze customer feedback and verbatims for the specific period
+            - customer_profile_tool: Analyze customer profile impact for the specific period
+            
+            DECISION CRITERIA:
+            - For single period analysis: Start with operative_data_tool to understand operational metrics
+            - Consider the anomaly type and magnitude in your decision
+            - Focus on tools that provide insights for the specific period without comparison
+            
+            Respond with ONLY the name of the tool to execute first:
+            """
+            
+            # Get initial tool decision from LLM - NO FALLBACKS, AGENT MUST DECIDE
+            try:
+                from langchain.schema import HumanMessage
+                initial_response = await self.llm([HumanMessage(content=initial_decision_prompt)])
+                initial_tool = initial_response.content.strip()
+                
+                # Clean up the response and validate
+                valid_tools = [
+                    'operative_data_tool', 'ncs_tool', 'routes_tool',
+                    'verbatims_tool', 'customer_profile_tool'
+                ]
+                
+                if initial_tool in valid_tools:
+                    current_tool = initial_tool
+                    self.logger.info(f"🎯 Agent decided to start with: {current_tool}")
+                else:
+                    # ❌ NO FALLBACK - AGENT MUST PROVIDE VALID TOOL
+                    error_msg = f"Agent provided invalid tool: '{initial_tool}'. Valid tools are: {valid_tools}"
+                    self.logger.error(f"❌ {error_msg}")
+                    raise ValueError(error_msg)
+                    
+            except Exception as e:
+                # ❌ NO FALLBACK - INVESTIGATION MUST FAIL IF AGENT CANNOT DECIDE
+                error_msg = f"Agent failed to decide initial tool: {e}"
+                self.logger.error(f"❌ {error_msg}")
+                raise RuntimeError(error_msg)
+            
+            # Now execute tools based on agent decisions
             max_iterations = 5  # Allow up to 5 iterations for dynamic tool selection
             iteration = 0
-            current_tool = single_period_sequence[0]  # Start with first tool
             
-            # Execute tools for single period analysis with dynamic progression
             while current_tool and iteration < max_iterations:
                 iteration += 1
                 self.tracker.next_iteration()
@@ -1319,31 +1334,17 @@ class CausalExplanationAgent:
                 # Store tool context
                 self.tracker.set_tool_context(current_tool, tool_result)
                 
-                # Get helper guidance for single period
-                investigative_guidance = self._generate_investigative_guidance(current_tool, iteration, mode="single")
-                
-                # USER MESSAGE: Tool result + Helper guidance
-                tool_result_message = self._get_tool_result_message(mode="single").format(
-                    tool_name=current_tool.upper(),
-                    tool_result=tool_result,
-                    investigative_guidance=investigative_guidance,
-                    comparison_filter=self.causal_filter
-                )
-                
-                message_history.create_and_add_message(
-                    content=tool_result_message,
-                    message_type=MessageType.USER
-                )
-                
-                self.tracker.log_message("USER", f"TOOL_RESULT + HELPER: {tool_result_message}")
-                
-                # AI MESSAGE: Reflection using clean context + helper + tool results
-                reflection = await self._get_clean_reflection(
+                # AI MESSAGE: Reflection using clean context + tool results
+                reflection_result = await self._get_clean_reflection(
                     system_prompt=system_prompt,
                     tool_name=current_tool,
                     tool_result=tool_result,
-                    helper_guidance=investigative_guidance or ""
+                    message_history=message_history
                 )
+                
+                if reflection_result and isinstance(reflection_result, dict):
+                    reflection = reflection_result.get("reflection", "")
+                    next_tool_code = reflection_result.get("next_tool_code", "")
                 
                 if reflection:
                     self.tracker.add_explanation(reflection)
@@ -1354,15 +1355,17 @@ class CausalExplanationAgent:
                     )
                     self.tracker.log_message("AI", f"REFLECTION: {reflection}")
                     self.logger.info(f"💭 Reflection captured for {current_tool}")
+                    
+                    # Execute next tool code if provided
+                    if next_tool_code:
+                        self.logger.info(f"🔄 Executing next tool code: {next_tool_code}")
+                        # TODO: Implement execution of next_tool_code
+                        # This could be a Python code execution or tool call
+                    
                 else:
                     self.logger.warning(f"⚠️ No reflection captured for {current_tool}")
-                
-                # Determine next tool dynamically
-                current_tool = self._determine_next_tool_dynamic(current_tool, iteration, max_iterations)
-                if current_tool:
-                    self.logger.info(f"🔄 Next tool determined: {current_tool}")
-                else:
-                    self.logger.info(f"✅ No more tools to execute, proceeding to synthesis")
+                    # ❌ NO FALLBACK - INVESTIGATION MUST END IF AGENT CANNOT REFLECT
+                    self.logger.error(f"❌ Investigation cannot continue without agent reflection")
                     break
                 
             # Final synthesis for single period
@@ -1487,12 +1490,70 @@ class CausalExplanationAgent:
             )
             self.tracker.log_message("USER", user_input)
             
-            # Let the agent decide which tools to use based on helper prompts and context
+            # FIRST: Let the agent decide which tool to start with based on the initial context
+            self.logger.info("🤔 First step: Agent deciding initial tool to execute...")
+            
+            # Create prompt for initial tool decision
+            initial_decision_prompt = f"""
+            Based on the investigation parameters and context, decide which tool to execute FIRST.
+            
+            INVESTIGATION CONTEXT:
+            - Node Path: {node_path}
+            - Period: {start_date} to {end_date}
+            - Anomaly Type: {anomaly_type}
+            - Anomaly Magnitude: {anomaly_magnitude}
+            - Comparison Filter: {causal_filter}
+            - Current NPS: {current_nps}
+            - Baseline NPS: {baseline_nps}
+            - NPS Difference: {nps_difference}
+            
+            AVAILABLE TOOLS:
+            - explanatory_drivers_tool: Analyze SHAP values and explanatory drivers (for comparative analysis)
+            - operative_data_tool: Analyze operational KPIs (OTP, Load Factor, etc.)
+            - ncs_tool: Analyze operational incidents and NCS data
+            - verbatims_tool: Analyze customer feedback and verbatims
+            - routes_tool: Analyze route-specific performance
+            - customer_profile_tool: Analyze customer profile impact
+            
+            DECISION CRITERIA:
+            - For comparative analysis: Start with explanatory_drivers_tool to understand SHAP drivers
+            - For single period: Start with operative_data_tool to analyze operational metrics
+            - Consider the anomaly type and magnitude in your decision
+            
+            Respond with ONLY the name of the tool to execute first:
+            """
+            
+            # Get initial tool decision from LLM - NO FALLBACKS, AGENT MUST DECIDE
+            try:
+                from langchain.schema import HumanMessage
+                initial_response = await self.llm([HumanMessage(content=initial_decision_prompt)])
+                initial_tool = initial_response.content.strip()
+                
+                # Clean up the response and validate
+                valid_tools = [
+                    'explanatory_drivers_tool', 'operative_data_tool', 'ncs_tool',
+                    'verbatims_tool', 'routes_tool', 'customer_profile_tool'
+                ]
+                
+                if initial_tool in valid_tools:
+                    current_tool = initial_tool
+                    self.logger.info(f"🎯 Agent decided to start with: {current_tool}")
+                else:
+                    # ❌ NO FALLBACK - AGENT MUST PROVIDE VALID TOOL
+                    error_msg = f"Agent provided invalid tool: '{initial_tool}'. Valid tools are: {valid_tools}"
+                    self.logger.error(f"❌ {error_msg}")
+                    raise ValueError(error_msg)
+                    
+            except Exception as e:
+                # ❌ NO FALLBACK - INVESTIGATION MUST FAIL IF AGENT CANNOT DECIDE
+                error_msg = f"Agent failed to decide initial tool: {e}"
+                self.logger.error(f"❌ {error_msg}")
+                raise RuntimeError(error_msg)
+            
+            # Now execute tools based on agent decisions
             max_iterations = 5  # Maximum iterations to prevent infinite loops
             iteration = 0
-            current_tool = "explanatory_drivers_tool"  # Start with explanatory drivers
             
-            # Execute tools based on agent decisions
             while current_tool and iteration < max_iterations:
                 iteration += 1
                 self.tracker.next_iteration()
@@ -1507,33 +1568,17 @@ class CausalExplanationAgent:
                 # Store tool context
                 self.tracker.set_tool_context(current_tool, tool_result)
                 
-                # Get helper guidance for comparative mode
-                investigative_guidance = self._generate_investigative_guidance(current_tool, iteration, mode="comparative")
-                
-                # USER MESSAGE: Tool result + Helper guidance
-                safe_causal_filter = self.causal_filter if self.causal_filter else "período de referencia"
-                tool_result_message = self._get_tool_result_message(mode="comparative").format(
-                    tool_name=current_tool.upper(),
-                    tool_result=tool_result,
-                    investigative_guidance=investigative_guidance,
-                    causal_filter=safe_causal_filter,
-                    comparison_filter=safe_causal_filter  # For backwards compatibility
-                )
-                
-                message_history.create_and_add_message(
-                    content=tool_result_message,
-                    message_type=MessageType.USER
-                )
-                
-                self.tracker.log_message("USER", f"TOOL_RESULT + HELPER: {tool_result_message}")
-                
-                # AI MESSAGE: Reflection using clean context + helper + tool results
-                reflection = await self._get_clean_reflection(
+                # AI MESSAGE: Reflection using clean context + tool results
+                reflection_result = await self._get_clean_reflection(
                     system_prompt=system_prompt,
                     tool_name=current_tool,
                     tool_result=tool_result,
-                    helper_guidance=investigative_guidance or ""
+                    message_history=message_history
                 )
+                
+                if reflection_result and isinstance(reflection_result, dict):
+                    reflection = reflection_result.get("reflection", "")
+                    next_tool_code = reflection_result.get("next_tool_code", "")
                 
                 if reflection:
                     self.tracker.add_explanation(reflection)
@@ -1545,10 +1590,78 @@ class CausalExplanationAgent:
                     self.tracker.log_message("AI", f"REFLECTION: {reflection}")
                     self.logger.info(f"💭 Reflection captured for {current_tool}")
                     
-                    # Let the agent decide the next tool based on reflection and helper prompts
-                    current_tool = await self._determine_next_tool_from_reflection(
-                        reflection, current_tool, iteration, max_iterations
-                    )
+                    # Execute next tool code if provided
+                    if next_tool_code:
+                        self.logger.info(f"🔄 Executing next tool code: {next_tool_code}")
+                        
+                        # Execute the tool based on the code from reflection
+                        try:
+                            if next_tool_code == "explanatory_drivers_tool":
+                                current_tool = "explanatory_drivers_tool"
+                            elif next_tool_code == "operative_data_tool":
+                                current_tool = "operative_data_tool"
+                            elif next_tool_code == "ncs_tool":
+                                current_tool = "ncs_tool"
+                            elif next_tool_code == "verbatims_tool":
+                                current_tool = "verbatims_tool"
+                            elif next_tool_code == "routes_tool":
+                                current_tool = "routes_tool"
+                            elif next_tool_code == "customer_profile_tool":
+                                current_tool = "customer_profile_tool"
+                            else:
+                                self.logger.warning(f"⚠️ Unknown tool code: {next_tool_code}")
+                                # Fallback to agent decision
+                                current_tool = await self._determine_next_tool_from_reflection(
+                                    reflection, current_tool, iteration, max_iterations
+                                )
+                        except Exception as e:
+                            self.logger.error(f"❌ Error executing tool code {next_tool_code}: {e}")
+                            # Fallback to agent decision
+                            current_tool = await self._determine_next_tool_from_reflection(
+                                reflection, current_tool, iteration, max_iterations
+                            )
+                        
+                        # Execute the tool and get results
+                        if current_tool:
+                            self.logger.info(f"🔄 Executing tool: {current_tool}")
+                            tool_result = await self._execute_tool_unified(
+                                current_tool, node_path, start_date, end_date, iteration, "comparative"
+                            )
+                            
+                            # Store tool context
+                            self.tracker.set_tool_context(current_tool, tool_result)
+                            
+                            # Get reflection for this tool execution
+                            reflection_result = await self._get_clean_reflection(
+                                system_prompt=system_prompt,
+                                tool_name=current_tool,
+                                tool_result=tool_result,
+                                message_history=message_history,
+                                mode="comparative"
+                            )
+                            
+                            if reflection_result and isinstance(reflection_result, dict):
+                                reflection = reflection_result.get("reflection", "")
+                                next_tool_code = reflection_result.get("next_tool_code", "")
+                            
+                            if reflection:
+                                self.tracker.add_explanation(reflection)
+                                message_history.create_and_add_message(
+                                    content=reflection,
+                                    message_type=MessageType.AI,
+                                    agent=AgentName.CONVERSATIONAL
+                                )
+                                self.tracker.log_message("AI", f"REFLECTION: {reflection}")
+                                self.logger.info(f"💭 Reflection captured for {current_tool}")
+                            
+                            # Continue with next iteration
+                            continue
+                    else:
+                        # Let the agent decide the next tool based on reflection and helper prompts
+                        current_tool = await self._determine_next_tool_from_reflection(
+                            reflection, current_tool, iteration, max_iterations
+                        )
+                    
                     if current_tool:
                         self.logger.info(f"🔄 Agent decided next tool: {current_tool}")
                     else:
@@ -1686,8 +1799,13 @@ class CausalExplanationAgent:
         This replaces the programmatic sequence with intelligent decision making.
         """
         try:
+            self.logger.info(f"🤔 AGENT DECISION: Determining next tool after {current_tool}")
+            self.logger.info(f"📊 Decision context: iteration={iteration}/{max_iterations}")
+            self.logger.info(f"💭 Reflection length: {len(reflection)} chars")
+            
             # Get the helper prompt for the current tool to guide the agent
             helper_prompt = self._get_helper_prompt_for_tool(current_tool)
+            self.logger.info(f"🔧 Helper prompt length: {len(helper_prompt) if helper_prompt else 0} chars")
             
             # Create a prompt for the agent to decide the next tool
             decision_prompt = f"""
@@ -1717,8 +1835,11 @@ class CausalExplanationAgent:
             response = await self.llm([HumanMessage(content=decision_prompt)])
             next_tool = response.content.strip()
             
+            self.logger.info(f"🤖 Agent response: '{next_tool}'")
+            
             # Clean up the response
             if next_tool.lower() in ['end', 'none', 'complete', 'finished']:
+                self.logger.info(f"✅ Agent decided to END investigation")
                 return None
             
             # Validate that it's a valid tool
@@ -1728,9 +1849,11 @@ class CausalExplanationAgent:
             ]
             
             if next_tool in valid_tools:
+                self.logger.info(f"✅ Agent decided next tool: {next_tool}")
                 return next_tool
             else:
-                self.logger.warning(f"⚠️ Agent suggested invalid tool: {next_tool}, ending investigation")
+                self.logger.warning(f"⚠️ Agent suggested invalid tool: '{next_tool}', ending investigation")
+                self.logger.warning(f"⚠️ Valid tools are: {valid_tools}")
                 return None
                 
         except Exception as e:
@@ -4263,8 +4386,8 @@ class CausalExplanationAgent:
         else:
             return "⚪ Sin impacto en NPS"
     
-    async def _get_clean_reflection(self, system_prompt: str, tool_name: str, tool_result: str, helper_guidance: str, mode: str = "comparative") -> Optional[str]:
-        """Get AI reflection using clean context + helper prompt + tool results"""
+    async def _get_clean_reflection(self, system_prompt: str, tool_name: str, tool_result: str, message_history: MessageHistory, mode: str = "comparative") -> Optional[Dict[str, str]]:
+        """Get AI reflection using clean context + tool results"""
         try:
             self.logger.info(f"🤔 Starting reflection for {tool_name}...")
             
@@ -4272,40 +4395,49 @@ class CausalExplanationAgent:
             clean_messages = self.tracker.get_clean_context(system_prompt)
             
             # Add current tool context with helper prompt and results using new mode-specific template
-            reflection_template = self._get_reflection_prompt(mode)
+            # Try to determine flow type from context for comparative mode
+            flow_type = None
+            if mode == "comparative" and tool_name == "explanatory_drivers_tool":
+                # For explanatory drivers, we need to analyze the result to determine flow
+                flow_type = self._determine_flow_type_from_drivers(tool_result)
+            
+            reflection_template = self._get_reflection_prompt(mode, tool_name, flow_type)
+            self.logger.info(f"🔍 DEBUG LLM: reflection_template length={len(reflection_template) if reflection_template else 0}")
+            
             if reflection_template:
                 # Ensure causal_filter has a safe value for template formatting
                 safe_causal_filter = self.causal_filter if self.causal_filter else "período de referencia"
                 reflection_prompt = reflection_template.format(
                 tool_name=tool_name.upper(),
-                helper_guidance=helper_guidance,
                 tool_result=tool_result,
                     causal_filter=safe_causal_filter,
                     comparison_filter=safe_causal_filter  # For backwards compatibility
             )
+                self.logger.info(f"🔍 DEBUG LLM: reflection_prompt formatted successfully, length={len(reflection_prompt)}")
             else:
-                reflection_prompt = f"Analiza los resultados de {tool_name.upper()}\n\n{helper_guidance}\n\n{tool_result}"
+                reflection_prompt = f"Analiza los resultados de {tool_name.upper()}\n\n{tool_result}"
+                self.logger.warning(f"🔍 DEBUG LLM: Using fallback reflection_prompt, length={len(reflection_prompt)}")
             
             # Check reflection prompt size
             prompt_size = len(reflection_prompt)
-            self.logger.debug(f"📏 Reflection prompt size: {prompt_size} chars")
+            self.logger.info(f"🔍 DEBUG LLM: Final reflection_prompt size: {prompt_size} chars")
+            self.logger.info(f"🔍 DEBUG LLM: reflection_prompt preview: {reflection_prompt[:500]}...")
             
             if prompt_size > 60000:  # 60KB limit for reflection
                 self.logger.warning(f"⚠️ Reflection prompt very large ({prompt_size} chars) - truncating tool result")
                 truncated_result = tool_result[:30000] + "\n\n[... TOOL RESULT TRUNCATED DUE TO SIZE ...]"
-                reflection_template = self._get_reflection_prompt(mode)
+                reflection_template = self._get_reflection_prompt(mode, tool_name, flow_type)
                 if reflection_template:
                     # Ensure causal_filter has a safe value for template formatting
                     safe_causal_filter = self.causal_filter if self.causal_filter else "período de referencia"
                     reflection_prompt = reflection_template.format(
                     tool_name=tool_name.upper(),
-                    helper_guidance=helper_guidance,
                     tool_result=truncated_result,
                         causal_filter=safe_causal_filter,
                         comparison_filter=safe_causal_filter  # For backwards compatibility
                 )
                 else:
-                    reflection_prompt = f"Analiza los resultados de {tool_name.upper()}\n\n{helper_guidance}\n\n{truncated_result}"
+                    reflection_prompt = f"Analiza los resultados de {tool_name.upper()}\n\n{truncated_result}"
                 self.logger.debug(f"📏 Truncated reflection prompt size: {len(reflection_prompt)} chars")
             
             clean_messages.append({
@@ -4330,7 +4462,26 @@ class CausalExplanationAgent:
             # Check if response content is valid
             if response.content and isinstance(response.content, str) and response.content.strip():
                 self.logger.info(f"🤔 Reflection completed for {tool_name}: {len(response.content)} chars")
-                return response.content
+                self.logger.info(f"🔍 DEBUG LLM OUTPUT: Raw response preview: {response.content[:500]}...")
+                
+                # Parse the structured response to extract reflection and next tool code
+                reflection, next_tool_code = self._parse_reflection_response(response.content)
+                self.logger.info(f"🔍 DEBUG LLM OUTPUT: Parsed reflection length={len(reflection) if reflection else 0}")
+                self.logger.info(f"🔍 DEBUG LLM OUTPUT: Parsed next_tool_code length={len(next_tool_code) if next_tool_code else 0}")
+                
+                # Store reflection in message history
+                if reflection:
+                    message_history.create_and_add_message(
+                        content=f"REFLECTION: {reflection}",
+                        message_type=MessageType.AI,
+                        agent=AgentName.CONVERSATIONAL
+                    )
+                
+                # Return both reflection and next tool code
+                return {
+                    "reflection": reflection,
+                    "next_tool_code": next_tool_code
+                }
             else:
                 self.logger.warning(f"⚠️ No valid reflection content for {tool_name}")
                 return None
@@ -5882,12 +6033,33 @@ Proporciona análisis estructurado, específico y respaldado por números."""
         else:
             return self.config.get('comparative_prompts', {}).get('tool_result_message', '📊 RESULTADO DE HERRAMIENTA: {tool_name}\n{tool_result}')
     
-    def _get_reflection_prompt(self, mode: str = "comparative") -> str:
-        """Get reflection prompt for specified mode"""
+    def _get_reflection_prompt(self, mode: str = "comparative", tool_name: str = None, flow_type: str = None) -> str:
+        """Get reflection prompt for specified mode with dynamic tool-specific guidance"""
+        base_prompt = ""
         if mode == "single":
-            return self.config.get('single_prompts', {}).get('reflection_prompt', '')
+            base_prompt = self.config.get('single_prompts', {}).get('reflection_prompt', '')
         else:
-            return self.config.get('comparative_prompts', {}).get('reflection_prompt', '')
+            base_prompt = self.config.get('comparative_prompts', {}).get('reflection_prompt', '')
+        
+        # DEBUG: Log the base prompt
+        self.logger.info(f"🔍 DEBUG REFLECTION: mode={mode}, tool_name={tool_name}, flow_type={flow_type}")
+        self.logger.info(f"🔍 DEBUG REFLECTION: base_prompt length={len(base_prompt)}")
+        
+        # If tool_name is provided, add dynamic tool-specific guidance
+        if tool_name and base_prompt:
+            tool_prompt = self._get_tool_prompt(tool_name, mode, flow_type)
+            self.logger.info(f"🔍 DEBUG REFLECTION: tool_prompt length={len(tool_prompt) if tool_prompt else 0}")
+            
+            if tool_prompt:
+                # Add the tool-specific guidance to the base reflection prompt
+                enhanced_prompt = f"{base_prompt}\n\n🎯 GUÍA ESPECÍFICA DE LA HERRAMIENTA:\n{tool_prompt}"
+                self.logger.info(f"🔍 DEBUG REFLECTION: enhanced_prompt length={len(enhanced_prompt)}")
+                return enhanced_prompt
+            else:
+                self.logger.warning(f"🔍 DEBUG REFLECTION: No tool_prompt found for {tool_name}")
+        
+        self.logger.info(f"🔍 DEBUG REFLECTION: Returning base_prompt (no enhancement)")
+        return base_prompt
     
     def _get_synthesis_prompt(self, mode: str = "comparative") -> str:
         """Get synthesis prompt for specified mode"""
@@ -5896,10 +6068,110 @@ Proporciona análisis estructurado, específico y respaldado por números."""
         else:
             return self.config.get('comparative_prompts', {}).get('synthesis_prompt', '')
     
-    def _get_tool_prompt(self, tool_name: str, mode: str = "comparative") -> str:
-        """Get tool-specific prompt for specified mode"""
+    def _determine_flow_type_from_drivers(self, tool_result: str) -> str:
+        """Determine flow type from explanatory drivers tool result"""
+        try:
+            result_lower = tool_result.lower()
+            self.logger.info(f"🔍 DEBUG FLOW: Analyzing tool_result of length {len(tool_result)}")
+            
+            # Check for operational drivers
+            operational_keywords = ['punctuality', 'otp', 'delay', 'baggage', 'mishandling', 'misconex', 'load factor', 'connections', 'arrivals']
+            operational_count = sum(1 for keyword in operational_keywords if keyword in result_lower)
+            self.logger.info(f"🔍 DEBUG FLOW: Found {operational_count} operational keywords")
+            
+            # Check for product drivers
+            product_keywords = ['crew', 'food', 'comfort', 'entertainment', 'service', 'cleanliness', 'seating', 'amenities']
+            product_count = sum(1 for keyword in product_keywords if keyword in result_lower)
+            self.logger.info(f"🔍 DEBUG FLOW: Found {product_count} product keywords")
+            
+            # Determine flow based on driver types
+            if operational_count > 0 and product_count > 0:
+                flow_type = 'mixed'
+            elif operational_count > 0:
+                flow_type = 'operative'
+            elif product_count > 0:
+                flow_type = 'product'
+            else:
+                # Default to operative if unclear
+                flow_type = 'operative'
+            
+            self.logger.info(f"🔍 DEBUG FLOW: Determined flow_type: {flow_type}")
+            return flow_type
+                
+        except Exception as e:
+            self.logger.warning(f"Could not determine flow type from drivers: {e}")
+            return 'operative'  # Default fallback
+    
+    def _get_tool_prompt(self, tool_name: str, mode: str = "comparative", flow_type: str = None) -> str:
+        """Get tool-specific prompt for specified mode and flow type"""
+        self.logger.info(f"🔍 DEBUG TOOL_PROMPT: tool_name={tool_name}, mode={mode}, flow_type={flow_type}")
+        
         tool_prompts = self.config.get('tools_prompts', {}).get(tool_name, {})
-        return tool_prompts.get(mode, '')
+        self.logger.info(f"🔍 DEBUG TOOL_PROMPT: Found tool_prompts for {tool_name}: {bool(tool_prompts)}")
+        
+        if mode not in tool_prompts:
+            self.logger.warning(f"🔍 DEBUG TOOL_PROMPT: Mode {mode} not found in tool_prompts for {tool_name}")
+            return ''
+        
+        mode_prompts = tool_prompts[mode]
+        self.logger.info(f"🔍 DEBUG TOOL_PROMPT: mode_prompts type={type(mode_prompts)}, content preview={str(mode_prompts)[:100]}...")
+        
+        # If flow_type is specified and exists, return that specific flow
+        if flow_type and isinstance(mode_prompts, dict) and flow_type in mode_prompts:
+            self.logger.info(f"🔍 DEBUG TOOL_PROMPT: Returning specific flow_type={flow_type}")
+            return mode_prompts[flow_type]
+        
+        # If no flow_type specified, return the mode prompt (could be string or dict)
+        if isinstance(mode_prompts, str):
+            self.logger.info(f"🔍 DEBUG TOOL_PROMPT: Returning string mode_prompts")
+            return mode_prompts
+        elif isinstance(mode_prompts, dict):
+            # For comparative mode with flows, provide guidance on how to choose
+            if tool_name == 'explanatory_drivers_tool':
+                # For explanatory drivers, provide all flow options
+                flow_options = []
+                for flow, prompt in mode_prompts.items():
+                    flow_options.append(f"**{flow.upper()} FLOW:**\n{prompt}")
+                self.logger.info(f"🔍 DEBUG TOOL_PROMPT: explanatory_drivers_tool - returning {len(flow_options)} flow options")
+                return "\n\n".join(flow_options)
+            else:
+                # For other tools, return the operative flow as default
+                operative_prompt = mode_prompts.get('operative', str(mode_prompts))
+                self.logger.info(f"🔍 DEBUG TOOL_PROMPT: Returning operative flow as default")
+                return operative_prompt
+        
+        self.logger.info(f"🔍 DEBUG TOOL_PROMPT: Returning str(mode_prompts)")
+        return str(mode_prompts)
+
+    def _parse_reflection_response(self, response: str) -> Tuple[str, str]:
+        """Parse reflection response to extract reflection and next tool code"""
+        import re
+        
+        reflection = ""
+        next_tool_code = ""
+        
+        # DEBUG: Log the raw response
+        self.logger.info(f"🔍 DEBUG PARSE: Parsing response of length {len(response)}")
+        
+        # Extract reflection from ```reflection``` block
+        reflection_match = re.search(r'```reflection\s*\n(.*?)\n```', response, re.DOTALL)
+        if reflection_match:
+            reflection = reflection_match.group(1).strip()
+            self.logger.info(f"🔍 DEBUG PARSE: Found reflection block, length={len(reflection)}")
+        else:
+            self.logger.warning(f"🔍 DEBUG PARSE: No reflection block found in response")
+        
+        # Extract next tool code from ```next_tool``` block
+        next_tool_code_match = re.search(r'```next_tool\s*\n(.*?)\n```', response, re.DOTALL)
+        if next_tool_code_match:
+            next_tool_code = next_tool_code_match.group(1).strip()
+            self.logger.info(f"🔍 DEBUG PARSE: Found next_tool block, length={len(next_tool_code)}")
+            self.logger.info(f"🔍 DEBUG PARSE: next_tool_code content: {next_tool_code}")
+        else:
+            self.logger.warning(f"🔍 DEBUG PARSE: No next_tool block found in response")
+        
+        self.logger.info(f"🔍 DEBUG PARSE: Final result - reflection: {len(reflection)}, next_tool: {len(next_tool_code)}")
+        return reflection, next_tool_code
 
 
 # Convenience function

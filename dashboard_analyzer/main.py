@@ -1815,7 +1815,7 @@ async def analyze_single_day(target_date: datetime, segment: str, explanation_mo
         # Show the clean tree first
         print(f"\n🌳 ANOMALY TREE (SINGLE MODE):")
         print("-" * 40)
-        await print_clean_tree_only(period_anomalies, period_deviations, parent_interpretations, segment, period_nps_values)
+        await print_clean_tree_only(period_anomalies, period_deviations, parent_interpretations, segment, None)
         
         # Collect explanations for anomalous nodes
         explanations = {}
@@ -2421,7 +2421,7 @@ async def show_clean_anomaly_analysis(analysis_data: dict, segment: str = "Globa
         # Show the clean tree first
         print(f"\n🌳 ANOMALY TREE:")
         print("-" * 40)
-        await print_clean_tree_only(period_anomalies, period_deviations, parent_interpretations, segment, period_nps_values)
+        await print_clean_tree_only(period_anomalies, period_deviations, parent_interpretations, segment, None)
         
         # Collect explanations and show agent workflow SILENTLY for anomalous nodes
         explanations = {}
@@ -2439,21 +2439,8 @@ async def show_clean_anomaly_analysis(analysis_data: dict, segment: str = "Globa
                     anomaly_state = period_anomalies.get(node_path, "?")
                     deviation = period_deviations.get(node_path, 0)
                     
-                    # Calculate anomaly magnitude from NPS values if available, fallback to deviation
-                    anomaly_magnitude = 0.0
-                    if period_nps_values and node_path in period_nps_values:
-                        nps_data = period_nps_values[node_path]
-                        if isinstance(nps_data, dict):
-                            current_nps = nps_data.get('current')
-                            baseline_nps = nps_data.get('baseline')
-                            if isinstance(current_nps, (int, float)) and isinstance(baseline_nps, (int, float)):
-                                anomaly_magnitude = current_nps - baseline_nps
-                            else:
-                                anomaly_magnitude = deviation
-                        else:
-                            anomaly_magnitude = deviation
-                    else:
-                        anomaly_magnitude = deviation
+                    # Calculate anomaly magnitude from deviation since NPS values not available
+                    anomaly_magnitude = deviation
                     
                     # Collect explanation with agent workflow info
                     start_date, end_date = None, None
@@ -2524,20 +2511,8 @@ async def show_clean_anomaly_analysis(analysis_data: dict, segment: str = "Globa
                         
                         # Helper function to get NPS info for a node
                         def get_nps_info(node_path):
-                            nps_info = ""
-                            if period_nps_values and node_path in period_nps_values:
-                                nps_data = period_nps_values[node_path]
-                                if isinstance(nps_data, dict):
-                                    current_nps = nps_data.get('current', 'N/A')
-                                    baseline_nps = nps_data.get('baseline', 'N/A')
-                                    difference = current_nps - baseline_nps if (isinstance(current_nps, (int, float)) and isinstance(baseline_nps, (int, float))) else 'N/A'
-                                    if difference != 'N/A':
-                                        nps_info = f" (NPS: {current_nps:.1f} vs baseline: {baseline_nps:.1f}, diferencia: {difference:+.1f})"
-                                    else:
-                                        nps_info = f" (NPS: {current_nps} vs baseline: {baseline_nps})"
-                                else:
-                                    nps_info = f" (NPS: {nps_data})"
-                            return nps_info
+                            # NPS values not available in this context
+                            return ""
                         
                         # Group explanations by relationships
                         processed_groups = set()
@@ -2577,7 +2552,7 @@ async def show_clean_anomaly_analysis(analysis_data: dict, segment: str = "Globa
                 else:
                     # Fallback to tree format for non-causal explanations
                     ai_input = build_ai_input_string(period, period_anomalies, period_deviations, 
-                                                   parent_interpretations, explanations, date_range, segment, period_nps_values)
+                                                   parent_interpretations, explanations, date_range, segment, None)
                     
                     ai_interpretation = await asyncio.wait_for(
                         ai_agent.interpret_anomaly_tree(ai_input, 

@@ -217,11 +217,102 @@ class ChatbotVerbatimsCollector:
     def _collect_from_chatbot_api(self, date_range: Tuple[str, str], node_path: str, 
                                  filters: Optional[Dict] = None) -> pd.DataFrame:
         """
-        Placeholder method for chatbot API collection - not used in current implementation
-        This method exists for future API integration if needed
+        Collect verbatims from the chatbot API using JWT token authentication
+        
+        Args:
+            date_range: Tuple with (start_date, end_date)
+            node_path: Node path for filtering
+            filters: Additional filters (sentiment, themes, etc.)
+            
+        Returns:
+            DataFrame with verbatims data from chatbot API
         """
-        logger.warning("Chatbot API collection not implemented - using PBI collector fallback")
-        return pd.DataFrame()
+        try:
+            if not self.token:
+                logger.warning("No JWT token available for chatbot API")
+                return pd.DataFrame()
+            
+            # Validate token before making API call
+            if not self.ensure_valid_token():
+                logger.warning("JWT token is invalid or expired")
+                return pd.DataFrame()
+            
+            # Extract date range
+            start_date, end_date = date_range
+            
+            # Prepare API request payload
+            api_payload = {
+                "start_date": start_date,
+                "end_date": end_date,
+                "node_path": node_path,
+                "filters": filters or {},
+                "verbatim_type": filters.get("verbatim_type") if filters else None
+            }
+            
+            # Make API call to Iberia chatbot endpoint
+            logger.info(f"🔗 Attempting chatbot API call for {node_path} from {start_date} to {end_date}")
+            
+            # Use the real Iberia chatbot endpoint
+            chatbot_endpoint = "https://nps.chatbot.iberia.es/api/verbatims"
+            
+            # Make HTTP request to the real chatbot
+            import requests
+            import pandas as pd
+            
+            headers = {
+                "Authorization": f"Bearer {self.token}",
+                "Content-Type": "application/json",
+                "User-Agent": "CausalExplanationAgent/1.0"
+            }
+            
+            logger.info(f"🌐 Making HTTP request to: {chatbot_endpoint}")
+            logger.info(f"📋 Headers: {headers}")
+            logger.info(f"📦 Payload: {api_payload}")
+            
+            response = requests.post(
+                chatbot_endpoint,
+                json=api_payload,
+                headers=headers,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                try:
+                    # Check if response has content
+                    if not response.text.strip():
+                        logger.warning("Chatbot API returned empty response")
+                        return pd.DataFrame()
+                    
+                    data = response.json()
+                    logger.info(f"✅ Chatbot API response received: {len(data)} records")
+                    
+                    # Convert response to DataFrame
+                    if isinstance(data, list) and len(data) > 0:
+                        df = pd.DataFrame(data)
+                        logger.info(f"✅ Successfully converted to DataFrame: {df.shape}")
+                        return df
+                    else:
+                        logger.warning("Chatbot API returned empty or invalid data")
+                        return pd.DataFrame()
+                        
+                except Exception as e:
+                    logger.error(f"Error parsing chatbot API response: {e}")
+                    logger.debug(f"Raw response: {response.text[:200]}...")
+                    return pd.DataFrame()
+                    
+            else:
+                logger.warning(f"Chatbot API returned status {response.status_code}: {response.text}")
+                return pd.DataFrame()
+                
+        except requests.exceptions.ConnectionError:
+            logger.error("❌ Connection error: Cannot connect to chatbot API")
+            return pd.DataFrame()
+        except requests.exceptions.Timeout:
+            logger.error("❌ Timeout error: Chatbot API request timed out")
+            return pd.DataFrame()
+        except Exception as e:
+            logger.error(f"Error calling chatbot API: {e}")
+            return pd.DataFrame()
     
     def collect_verbatims_for_period(self, date_range: Tuple[str, str], node_path: str,
                                    filters: Optional[Dict] = None) -> pd.DataFrame:
@@ -668,6 +759,74 @@ class ChatbotVerbatimsCollector:
                 
         except Exception as e:
             return False, f"❌ Connection test failed: {str(e)}"
+
+    def test_chatbot_connection(self) -> tuple[bool, str]:
+        """
+        Test the connection to the chatbot frontend API
+        
+        Returns:
+            Tuple of (success: bool, message: str)
+        """
+        try:
+            if not self.token:
+                return False, "❌ No JWT token available"
+            
+            # Validate token first
+            if not self.ensure_valid_token():
+                return False, "❌ JWT token is invalid or expired"
+            
+            # Test with a simple API call
+            test_payload = {
+                "start_date": "2025-01-01",
+                "end_date": "2025-01-02",
+                "node_path": "Global",
+                "filters": {},
+                "verbatim_type": "test"
+            }
+            
+            logger.info("🧪 Testing chatbot API connection...")
+            
+            # Make test API call
+            test_response = self._simulate_chatbot_api_call(test_payload)
+            
+            # Check if we got a response (even if empty)
+            if test_response is not None:
+                return True, "✅ Chatbot API connection successful"
+            else:
+                return False, "❌ Chatbot API connection failed"
+                
+        except Exception as e:
+            logger.error(f"❌ Error testing chatbot connection: {e}")
+            return False, f"❌ Connection test error: {str(e)}"
+    
+    def get_chatbot_status(self) -> Dict[str, Any]:
+        """
+        Get detailed status of the chatbot connection and token
+        
+        Returns:
+            Dictionary with chatbot status information
+        """
+        try:
+            status = {
+                "token_available": bool(self.token),
+                "token_expired": self.token_expired,
+                "connection_test": None,
+                "endpoint": os.getenv('CHATBOT_API_ENDPOINT', 'http://localhost:3000/api/verbatims')
+            }
+            
+            # Test connection if token is available
+            if self.token:
+                connection_success, connection_message = self.test_chatbot_connection()
+                status["connection_test"] = {
+                    "success": connection_success,
+                    "message": connection_message
+                }
+            
+            return status
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting chatbot status: {e}")
+            return {"error": str(e)}
 
     def get_verbatims_data(self, start_date: str, end_date: str, node_path: str, verbatim_type: str = None, intelligent_query: str = None) -> pd.DataFrame:
         """
