@@ -61,6 +61,7 @@ class CleanConversationTracker:
         self.previous_explanations = []
         self.identified_routes = []  # Nuevos campos para tracking
         self.last_tool_context = None  # Contexto del último tool ejecutado
+        self.dax_queries = []  # Track DAX queries executed during investigation
         
     def reset_tracker(self):
         """Reset for new investigation"""
@@ -69,6 +70,7 @@ class CleanConversationTracker:
         self.previous_explanations = []
         self.identified_routes = []
         self.last_tool_context = None
+        self.dax_queries = []
         
     def reset(self):
         """Resets the agent's state for a new analysis run."""
@@ -147,6 +149,17 @@ class CleanConversationTracker:
             routes = self._extract_routes_from_result(result)
             if routes:
                 self.identified_routes.extend(routes)
+    
+    def add_dax_query(self, tool_name: str, query: str, parameters: dict = None):
+        """Add a DAX query to the tracking list"""
+        query_entry = {
+            "tool_name": tool_name,
+            "query": query,
+            "parameters": parameters or {},
+            "timestamp": datetime.now().strftime("%H:%M:%S"),
+            "iteration": self.iteration_count
+        }
+        self.dax_queries.append(query_entry)
                 
     def _extract_routes_from_result(self, result: str) -> List[str]:
         """Extract route identifiers from tool results including Spanish city names"""
@@ -476,7 +489,7 @@ class CausalExplanationAgent:
             
             # Use the existing explanatory drivers collection method with comparison filter
             print(f"         🔍 DEBUG: Causal agent using causal_filter: '{self.causal_filter}'")
-            df = await self.pbi_collector.collect_explanatory_drivers_for_date_range(
+            df = await self._collect_explanatory_drivers_with_query_tracking(
                 node_path, start_dt, end_dt, 
                 comparison_filter=self.causal_filter,
                 comparison_start_date=self.comparison_start_date,
@@ -734,7 +747,7 @@ class CausalExplanationAgent:
             baseline_start_dt = datetime.strptime(baseline_start_date, '%Y-%m-%d')
 
             # Get operative data for the entire range (baseline + target day)
-            operative_data = await self.pbi_collector.collect_operative_data_for_date(
+            operative_data = await self._collect_operative_data_with_query_tracking(
                 node_path=node_path,
                 target_date=end_dt,
                 comparison_days=14,
@@ -750,6 +763,203 @@ class CausalExplanationAgent:
         except Exception as e:
             self.logger.error(f"❌ Error in single period operative data tool: {type(e).__name__}: {str(e)}")
             return f"ERROR in operative data tool: {type(e).__name__}: {str(e)}"
+    
+    async def _collect_operative_data_with_query_tracking(self, node_path: str, target_date: datetime, comparison_days: int = 7, use_flexible: bool = True) -> pd.DataFrame:
+        """Wrapper to collect operative data while tracking DAX queries"""
+        try:
+            # Get filters for this node
+            cabins, companies, hauls = self.pbi_collector._get_node_filters(node_path)
+            
+            # Generate the appropriate operative query
+            if use_flexible:
+                aggregation_days = comparison_days if comparison_days > 1 else 1
+                query = self.pbi_collector._get_flexible_operative_query(aggregation_days, cabins, companies, hauls, target_date)
+                query_type = "flexible_operative"
+            else:
+                query = self.pbi_collector._get_operative_query(cabins, companies, hauls, target_date, comparison_days)
+                query_type = "legacy_operative"
+            
+            # Track the DAX query
+            parameters = {
+                "node_path": node_path,
+                "target_date": target_date.strftime('%Y-%m-%d'),
+                "comparison_days": comparison_days,
+                "use_flexible": use_flexible,
+                "cabins": cabins,
+                "companies": companies,
+                "hauls": hauls
+            }
+            self.tracker.add_dax_query("operative_data_tool", query, parameters)
+            
+            # Execute the query
+            df = self.pbi_collector._execute_query(query)
+            
+            if not df.empty:
+                # Clean column names
+                df.columns = [col.strip('[]') for col in df.columns]
+                
+                # Convert date column to datetime
+                if 'Date_Master[Date' in df.columns:
+                    df.rename(columns={'Date_Master[Date': 'Date_Master'}, inplace=True)
+                
+                if 'Date_Master' in df.columns:
+                    df['Date_Master'] = pd.to_datetime(df['Date_Master']).dt.date
+                
+                self.logger.info(f"✅ Collected {len(df)} days of operational data for analysis")
+            
+            return df
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error collecting operative data with query tracking: {type(e).__name__}: {str(e)}")
+            return pd.DataFrame()
+    
+    async def _collect_routes_with_query_tracking(self, node_path: str, start_date: datetime, end_date: datetime, comparison_filter: str = "vs L7d", comparison_start_date: datetime = None, comparison_end_date: datetime = None) -> pd.DataFrame:
+        """Wrapper to collect routes data while tracking DAX queries"""
+        try:
+            # Get filters for this node
+            cabins, companies, hauls = self.pbi_collector._get_node_filters(node_path)
+            
+            # Generate the routes query for the date range
+            query = self.pbi_collector._get_routes_range_query(cabins, companies, hauls, start_date, end_date, comparison_filter, comparison_start_date, comparison_end_date)
+            
+            # Track the DAX query
+            parameters = {
+                "node_path": node_path,
+                "start_date": start_date.strftime('%Y-%m-%d'),
+                "end_date": end_date.strftime('%Y-%m-%d'),
+                "comparison_filter": comparison_filter,
+                "comparison_start_date": comparison_start_date.strftime('%Y-%m-%d') if comparison_start_date else None,
+                "comparison_end_date": comparison_end_date.strftime('%Y-%m-%d') if comparison_end_date else None,
+                "cabins": cabins,
+                "companies": companies,
+                "hauls": hauls
+            }
+            self.tracker.add_dax_query("routes_tool", query, parameters)
+            
+            # Execute the query
+            df = self.pbi_collector._execute_query(query)
+            
+            if not df.empty:
+                # Clean column names safely
+                df = self.pbi_collector._safe_clean_columns(df)
+                self.logger.info(f"✅ Collected {len(df)} routes for analysis (filter: {comparison_filter})")
+            
+            return df
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error collecting routes data with query tracking: {type(e).__name__}: {str(e)}")
+            return pd.DataFrame()
+    
+    async def _collect_customer_profile_with_query_tracking(self, node_path: str, start_date: datetime, end_date: datetime, dimension: str, comparison_filter: str = "vs L7d", comparison_start_date: datetime = None, comparison_end_date: datetime = None, route_filter: List[str] = None) -> pd.DataFrame:
+        """Wrapper to collect customer profile data while tracking DAX queries"""
+        try:
+            # Get filters for this node
+            cabins, companies, hauls = self.pbi_collector._get_node_filters(node_path)
+            
+            # Generate the customer profile query
+            query = self.pbi_collector._get_customer_profile_range_query(
+                cabins, companies, hauls, start_date, end_date, dimension, 
+                comparison_filter, comparison_start_date, comparison_end_date, route_filter
+            )
+            
+            # Track the DAX query
+            parameters = {
+                "node_path": node_path,
+                "start_date": start_date.strftime('%Y-%m-%d'),
+                "end_date": end_date.strftime('%Y-%m-%d'),
+                "dimension": dimension,
+                "comparison_filter": comparison_filter,
+                "comparison_start_date": comparison_start_date.strftime('%Y-%m-%d') if comparison_start_date else None,
+                "comparison_end_date": comparison_end_date.strftime('%Y-%m-%d') if comparison_end_date else None,
+                "route_filter": route_filter,
+                "cabins": cabins,
+                "companies": companies,
+                "hauls": hauls
+            }
+            self.tracker.add_dax_query("customer_profile_tool", query, parameters)
+            
+            # Execute the query and return results using the original method
+            return await self.pbi_collector.collect_customer_profile_for_date_range(
+                node_path, start_date, end_date, dimension, 
+                comparison_filter, comparison_start_date, comparison_end_date, route_filter
+            )
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error collecting customer profile data with query tracking: {type(e).__name__}: {str(e)}")
+            return pd.DataFrame()
+    
+    async def _collect_explanatory_drivers_with_query_tracking(self, node_path: str, start_date: datetime, end_date: datetime, comparison_filter: str = "vs L7d", comparison_start_date: datetime = None, comparison_end_date: datetime = None) -> pd.DataFrame:
+        """Wrapper to collect explanatory drivers data while tracking DAX queries"""
+        try:
+            # Get filters for this node
+            cabins, companies, hauls = self.pbi_collector._get_node_filters(node_path)
+            
+            # Generate the explanatory drivers query
+            query = self.pbi_collector._get_explanatory_drivers_range_query(
+                start_date, end_date, comparison_filter, comparison_start_date, comparison_end_date, cabins, companies, hauls
+            )
+            
+            # Track the DAX query
+            parameters = {
+                "node_path": node_path,
+                "start_date": start_date.strftime('%Y-%m-%d'),
+                "end_date": end_date.strftime('%Y-%m-%d'),
+                "comparison_filter": comparison_filter,
+                "comparison_start_date": comparison_start_date.strftime('%Y-%m-%d') if comparison_start_date else None,
+                "comparison_end_date": comparison_end_date.strftime('%Y-%m-%d') if comparison_end_date else None,
+                "cabins": cabins,
+                "companies": companies,
+                "hauls": hauls
+            }
+            self.tracker.add_dax_query("explanatory_drivers_tool", query, parameters)
+            
+            # Execute the query
+            df = self.pbi_collector._execute_query(query)
+            
+            if not df.empty:
+                # Clean column names safely
+                df = self.pbi_collector._safe_clean_columns(df)
+                self.logger.info(f"✅ Collected {len(df)} explanatory drivers records")
+            
+            return df
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error collecting explanatory drivers data with query tracking: {type(e).__name__}: {str(e)}")
+            return pd.DataFrame()
+    
+    def _collect_verbatims_with_query_tracking(self, node_path: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
+        """Wrapper to collect verbatims data while tracking DAX queries"""
+        try:
+            # Get filters for this node
+            cabins, companies, hauls = self.pbi_collector._get_node_filters(node_path)
+            
+            # Generate the verbatims query
+            query = self.pbi_collector._get_verbatims_range_query(cabins, companies, hauls, start_date, end_date)
+            
+            # Track the DAX query
+            parameters = {
+                "node_path": node_path,
+                "start_date": start_date.strftime('%Y-%m-%d'),
+                "end_date": end_date.strftime('%Y-%m-%d'),
+                "cabins": cabins,
+                "companies": companies,
+                "hauls": hauls
+            }
+            self.tracker.add_dax_query("verbatims_tool_fallback", query, parameters)
+            
+            # Execute the query
+            df = self.pbi_collector._execute_query(query)
+            
+            if not df.empty:
+                # Clean column names safely
+                df = self.pbi_collector._safe_clean_columns(df)
+                self.logger.info(f"✅ Collected {len(df)} verbatims records")
+            
+            return df
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error collecting verbatims data with query tracking: {type(e).__name__}: {str(e)}")
+            return pd.DataFrame()
     
     async def _operative_data_tool_correlation_analysis(self, node_path: str, operative_data: pd.DataFrame, target_date_str: str, comparison_context: str = "", baseline_periods: int = 7, anomaly_detection_mode: str = "target") -> str:
         """Operative data tool with correlation analysis using aggregated period data."""
@@ -974,7 +1184,7 @@ class CausalExplanationAgent:
             result_parts.append("")
             
             # 1. Get routes with NPS data (absolute values only, min_surveys >= 2)
-            routes_data = await self.pbi_collector.collect_routes_for_date_range(
+            routes_data = await self._collect_routes_with_query_tracking(
                 node_path=node_path,
                 start_date=start_dt,
                 end_date=end_dt,
@@ -1350,7 +1560,7 @@ class CausalExplanationAgent:
                 raise RuntimeError(error_msg)
             
             # Now execute tools based on agent decisions
-            max_iterations = 5  # Allow up to 5 iterations for dynamic tool selection
+            max_iterations = 10  # Allow up to 10 iterations for dynamic tool selection
             iteration = 0
             
             while current_tool and iteration < max_iterations:
@@ -1662,7 +1872,7 @@ class CausalExplanationAgent:
                 raise RuntimeError(error_msg)
             
             # Now execute tools based on agent decisions
-            max_iterations = 5  # Maximum iterations to prevent infinite loops
+            max_iterations = 10  # Maximum iterations to prevent infinite loops
             iteration = 0
             
             while current_tool and iteration < max_iterations:
@@ -1732,56 +1942,23 @@ class CausalExplanationAgent:
                                     reflection, current_tool, iteration, max_iterations
                                 )
                             
-                            # Execute the tool and get results
+                            # Continue to next iteration with the selected tool
+                            # The tool will be executed in the next iteration of the while loop
+                        else:
+                            # Let the agent decide the next tool based on reflection and helper prompts
+                            current_tool = await self._determine_next_tool_from_reflection(
+                                reflection, current_tool, iteration, max_iterations
+                            )
+                            
                             if current_tool:
-                                self.logger.info(f"🔄 Executing tool: {current_tool}")
-                                tool_result = await self._execute_tool_unified(
-                                    current_tool, node_path, start_date, end_date, iteration, "comparative", baseline_periods, comparison_context
-                                )
-                                
-                                # Store tool context
-                                self.tracker.set_tool_context(current_tool, tool_result)
-                                
-                                # Get reflection for this tool execution
-                                reflection_result = await self._get_clean_reflection(
-                                    system_prompt=system_prompt,
-                                    tool_name=current_tool,
-                                    tool_result=tool_result,
-                                    message_history=message_history,
-                                    mode="comparative"
-                                )
-                    
-                                if reflection_result and isinstance(reflection_result, dict):
-                                    reflection = reflection_result.get("reflection", "")
-                                    next_tool_code = reflection_result.get("next_tool_code", "")
-                
-                                    if reflection:
-                                        self.tracker.add_explanation(reflection)
-                                        message_history.create_and_add_message(
-                                            content=reflection,
-                                            message_type=MessageType.AI,
-                                            agent=AgentName.CONVERSATIONAL
-                                        )
-                                        self.tracker.log_message("AI", f"REFLECTION: {reflection}")
-                                        self.logger.info(f"💭 Reflection captured for {current_tool}")
-                                        
-                                        # Continue with next iteration
-                                        continue
-                                    else:
-                                        # Let the agent decide the next tool based on reflection and helper prompts
-                                        current_tool = await self._determine_next_tool_from_reflection(
-                                            reflection, current_tool, iteration, max_iterations
-                                        )
-                                        
-                                        if current_tool:
-                                            self.logger.info(f"🔄 Agent decided next tool: {current_tool}")
-                                        else:
-                                            self.logger.info(f"✅ Agent decided to end investigation")
-                                            break
-                                else:
-                                    self.logger.warning(f"⚠️ No reflection captured for {current_tool}")
-                                    # Fallback: end investigation if no reflection
-                                    current_tool = None
+                                self.logger.info(f"🔄 Agent decided next tool: {current_tool}")
+                            else:
+                                self.logger.info(f"✅ Agent decided to end investigation")
+                                break
+                    else:
+                        self.logger.warning(f"⚠️ No reflection captured for {current_tool}")
+                        # Fallback: end investigation if no reflection
+                        current_tool = None
 
         except Exception as e:
             self.logger.error(f"❌ Error crítico en investigación comparativa: {type(e).__name__}: {e}")
@@ -2084,8 +2261,8 @@ class CausalExplanationAgent:
                 # For mean mode, keep the original logic
                 extended_days = comparison_days
             
-            # Collect operational data directly from PBI with extended days for vslast
-            operational_data = await self.pbi_collector.collect_operative_data_for_date(
+            # Collect operational data using wrapper to track DAX queries
+            operational_data = await self._collect_operative_data_with_query_tracking(
                 node_path, target_dt, extended_days
             )
             
@@ -2338,7 +2515,7 @@ class CausalExplanationAgent:
             end_dt = datetime.strptime(end_date, '%Y-%m-%d')
             
             # collect_verbatims_for_date_range is NOT async
-            df = self.pbi_collector.collect_verbatims_for_date_range(node_path, start_dt, end_dt)
+            df = self._collect_verbatims_with_query_tracking(node_path, start_dt, end_dt)
             
             if df.empty:
                 return f"📝 No information available from verbatims tool for {node_path} in date range {start_date} to {end_date}"
@@ -3258,7 +3435,7 @@ class CausalExplanationAgent:
             self.logger.info(f"🔍 DEBUG ROUTES: cabins={cabins}, companies={companies}, hauls={hauls}")
             
             # Use the pbi_collector method that properly handles comparison_filter
-            df = await self.pbi_collector.collect_routes_for_date_range(
+            df = await self._collect_routes_with_query_tracking(
                 node_path=node_path,
                 start_date=start_dt,
                 end_date=end_dt,
@@ -3443,7 +3620,7 @@ class CausalExplanationAgent:
         """Fallback method for general routes analysis when no specific touchpoints are available"""
         try:
             # Use the pbi_collector method with comparison filter
-            df = await self.pbi_collector.collect_routes_for_date_range(
+            df = await self._collect_routes_with_query_tracking(
                 "Global", start_dt, end_dt,
                 comparison_filter=self.causal_filter,
                 comparison_start_date=self.comparison_start_date,
@@ -3889,14 +4066,14 @@ class CausalExplanationAgent:
                     
                     # collect_customer_profile_for_date_range IS async
                     if mode == "comparative":
-                        df = await self.pbi_collector.collect_customer_profile_for_date_range(
+                        df = await self._collect_customer_profile_with_query_tracking(
                             node_path, start_dt, end_dt, dimension,
                             comparison_filter=self.causal_filter,
                             comparison_start_date=self.comparison_start_date,
                             comparison_end_date=self.comparison_end_date
                         )
                     else:  # single mode
-                        df = await self.pbi_collector.collect_customer_profile_for_date_range(
+                        df = await self._collect_customer_profile_with_query_tracking(
                             node_path, start_dt, end_dt, dimension,
                             comparison_filter=None,  # No comparison in single mode
                             comparison_start_date=None,
@@ -4908,7 +5085,8 @@ class CausalExplanationAgent:
             "conversation_log": self.tracker.conversation_log,
                         "clean_explanations": self.tracker.previous_explanations,
                         "collected_data_summary": self._build_collected_data_summary() if hasattr(self, 'collected_data') else {},
-                        "conversation_summary": self._get_conversation_summary()
+                        "conversation_summary": self._get_conversation_summary(),
+                        "dax_queries": self.tracker.dax_queries
         }
         
             with open(full_path, 'w', encoding='utf-8') as f:

@@ -1036,11 +1036,17 @@ class PBIDataCollector:
         ).replace(
             '__COMPARISON_FILTER__', comparison_filter or ""
         ).replace(
-            '__CURRENT_YEAR__', str(start_date.year)
+            '__START_YEAR__', str(start_date.year)
         ).replace(
-            '__CURRENT_MONTH__', str(start_date.month)
+            '__START_MONTH__', str(start_date.month)
         ).replace(
-            '__CURRENT_DAY__', str(start_date.day)
+            '__START_DAY__', str(start_date.day)
+        ).replace(
+            '__END_YEAR__', str(end_date.year)
+        ).replace(
+            '__END_MONTH__', str(end_date.month)
+        ).replace(
+            '__END_DAY__', str(end_date.day)
         )
         
         # Handle vs Sel. Period logic like in other queries
@@ -1186,7 +1192,8 @@ class PBIDataCollector:
         profile_dimension: str = "Channel",
         comparison_filter: str = "vs L7d",
         comparison_start_date: datetime = None,
-        comparison_end_date: datetime = None
+        comparison_end_date: datetime = None,
+        route_filter: List[str] = None
     ) -> pd.DataFrame:
         """
         Collect customer profile data for a specific date range and dimension
@@ -1199,6 +1206,7 @@ class PBIDataCollector:
             comparison_filter: Comparison filter (e.g., "vs L7d", "vs LM")
             comparison_start_date: Start date for comparison period
             comparison_end_date: End date for comparison period
+            route_filter: Optional list of routes to filter by
             
         Returns:
             DataFrame with customer profile data
@@ -1220,6 +1228,7 @@ class PBIDataCollector:
                 start_date=start_date,
                 end_date=end_date,
                 profile_dimension=profile_dimension,
+                route_filter=route_filter,
                 comparison_filter=comparison_filter,
                 comparison_start_date=comparison_start_date,
                 comparison_end_date=comparison_end_date
