@@ -73,6 +73,12 @@ comparative_prompts:
     • **Comparación**: {causal_filter}
     • **NPS Actual**: {current_nps}
     • **NPS Baseline**: {baseline_nps}
+    • **Modo de Detección**: {anomaly_detection_mode}
+    • **Días por Período**: {aggregation_days}
+    • **Períodos de Baseline**: {baseline_periods}
+    
+    📈 **CONTEXTO DE COMPARACIÓN:**
+    {comparison_context}
     • **Diferencia**: {nps_difference}
 
     🎯 **OBJETIVO**: Identificar la causa raíz de la anomalía NPS en este segmento específico.
@@ -142,6 +148,13 @@ single_prompts:
     • **Tipo de Anomalía**: {anomaly_type}
     • **Magnitud**: {anomaly_magnitude} pts
     • **NPS del Día**: {current_nps}
+    • **NPS Baseline**: {baseline_nps}
+    • **Modo de Detección**: {anomaly_detection_mode}
+    • **Días por Período**: {aggregation_days}
+    • **Períodos de Baseline**: {baseline_periods}
+    
+    📈 **CONTEXTO DE COMPARACIÓN:**
+    {comparison_context}
 
     🎯 **OBJETIVO**: Entender qué factores influyeron en el NPS de este día específico.
 

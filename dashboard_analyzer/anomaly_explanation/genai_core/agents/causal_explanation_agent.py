@@ -666,7 +666,11 @@ class CausalExplanationAgent:
         node_path: str, 
         start_date: str, 
         end_date: str,
-        iteration: int
+        iteration: int,
+        comparison_context: str = "",
+        baseline_periods: int = 7,
+        anomaly_detection_mode: str = "target",
+        aggregation_days: int = 7
     ) -> str:
         """Execute a tool for single period analysis"""
         try:
@@ -679,7 +683,11 @@ class CausalExplanationAgent:
                     node_path=node_path,
                     start_date=start_date,
                     end_date=end_date,
-                    baseline_start_date=baseline_start_dt.strftime('%Y-%m-%d')
+                    baseline_start_date=baseline_start_dt.strftime('%Y-%m-%d'),
+                    comparison_context=comparison_context,
+                    baseline_periods=baseline_periods,
+                    anomaly_detection_mode=anomaly_detection_mode,
+                    aggregation_days=aggregation_days
                 )
             elif tool_name == "ncs_tool":
                 return await self._ncs_tool_single_period(
@@ -716,7 +724,7 @@ class CausalExplanationAgent:
             self.logger.error(f"❌ Error executing {tool_name} for single period: {type(e).__name__}: {str(e)}")
             return f"ERROR executing {tool_name} for single period: {type(e).__name__}: {str(e)}"
     
-    async def _operative_data_tool_single_period(self, node_path: str, start_date: str, end_date: str, baseline_start_date: str) -> str:
+    async def _operative_data_tool_single_period(self, node_path: str, start_date: str, end_date: str, baseline_start_date: str, comparison_context: str = "", baseline_periods: int = 7, anomaly_detection_mode: str = "target", aggregation_days: int = 7) -> str:
         """Operative data tool for single period analysis (absolute values + correlation analysis)"""
         try:
             self.logger.info(f"Collecting operative data for {node_path} from {baseline_start_date} to {end_date} for single period analysis")
@@ -737,13 +745,13 @@ class CausalExplanationAgent:
                 return f"No operative data found for {node_path} in range {baseline_start_date} to {end_date}"
             
             # Pass the full dataset and the specific target date for correlation analysis
-            return await self._operative_data_tool_correlation_analysis(node_path, operative_data, end_date)
+            return await self._operative_data_tool_correlation_analysis(node_path, operative_data, end_date, comparison_context, baseline_periods, anomaly_detection_mode)
             
         except Exception as e:
             self.logger.error(f"❌ Error in single period operative data tool: {type(e).__name__}: {str(e)}")
             return f"ERROR in operative data tool: {type(e).__name__}: {str(e)}"
     
-    async def _operative_data_tool_correlation_analysis(self, node_path: str, operative_data: pd.DataFrame, target_date_str: str) -> str:
+    async def _operative_data_tool_correlation_analysis(self, node_path: str, operative_data: pd.DataFrame, target_date_str: str, comparison_context: str = "", baseline_periods: int = 7, anomaly_detection_mode: str = "target") -> str:
         """Operative data tool with correlation analysis using aggregated period data."""
         try:
             # Clean the data
@@ -772,8 +780,9 @@ class CausalExplanationAgent:
             # Get target period data (most recent period)
             target_period_data = cleaned_data.iloc[0]  # First row is most recent period
 
-            # Calculate baseline from previous periods (periods 2, 3, 4, etc.)
-            baseline_data = cleaned_data.iloc[1:]  # All rows except the most recent
+            # Calculate baseline from previous periods using the same logic as NPS
+            # Use exactly baseline_periods periods (e.g., periods 2, 3, 4, 5, 6 for baseline_periods=5)
+            baseline_data = cleaned_data.iloc[1:baseline_periods+1]  # Only the specified number of baseline periods
 
             if len(baseline_data) < 2:
                 return f"📊 **DATOS OPERATIVOS - ANÁLISIS PERIODO**\n📅 Fecha: {target_date_str}\n🎯 Segmento: {node_path}\n⚠️ Insuficientes períodos para baseline (solo {len(baseline_data)} períodos disponibles)"
@@ -797,7 +806,7 @@ class CausalExplanationAgent:
             target_max_date = target_period_data.get('Max_Date', 'N/A')
 
             result_parts.append(f"📊 Período Objetivo: {target_period}")
-            result_parts.append(f"📅 Rango del período: {target_min_date} a {target_max_date}")
+            result_parts.append(f"📅 Fecha del período: {target_date_str}")
             result_parts.append(f"📈 Períodos baseline: {num_baseline_periods}")
             result_parts.append("")
             
@@ -823,8 +832,16 @@ class CausalExplanationAgent:
                         direction = "↑" if delta > 0 else "↓"
                         significance = " ⚠️" if is_significant else ""
                         
-                        # Format metric line
-                        metric_line = f"• {metric}: {period_value:.1f}% (media: {baseline_avg:.1f}%, {direction}{abs(delta):.1f}pts){significance}"
+                        # Format metric line with comparison context
+                        if comparison_context:
+                            # Extract the comparison part from the context (e.g., "vs media de los últimos 5 días")
+                            if "vs " in comparison_context:
+                                comparison_text = comparison_context.split("vs ")[1] if "vs " in comparison_context else "media"
+                            else:
+                                comparison_text = "media"
+                        else:
+                            comparison_text = "media"
+                        metric_line = f"• {metric}: {period_value:.1f}% ({comparison_text}: {baseline_avg:.1f}%, {direction}{abs(delta):.1f}pts){significance}"
                         metrics_analysis.append(metric_line)
                         
                         # Analyze correlation with NPS anomaly (assuming negative NPS anomaly)
@@ -1152,11 +1169,16 @@ class CausalExplanationAgent:
         nps_context: str = "",
         causal_filter: str = "vs L7d",
         comparison_start_date: datetime = None,
-        comparison_end_date: datetime = None
+        comparison_end_date: datetime = None,
+        anomaly_detection_mode: str = "target",
+        aggregation_days: int = 7,
+        comparison_context: str = "",
+        baseline_periods: int = 7
     ) -> str:
         """
         Main investigation method that routes to single or comparative mode based on study_mode
         """
+        print(f"🔍 DEBUG CAUSAL AGENT: investigate_anomaly called with start_date='{start_date}', end_date='{end_date}'")
         
         # Update instance variables with the passed parameters
         if causal_filter:
@@ -1169,12 +1191,14 @@ class CausalExplanationAgent:
         # Route to appropriate investigation method based on study_mode
         if self.study_mode == "single":
             return await self._investigate_anomaly_single_period(
-                node_path, start_date, end_date, anomaly_type, anomaly_magnitude, nps_context
+                node_path, start_date, end_date, anomaly_type, anomaly_magnitude, nps_context,
+                anomaly_detection_mode, aggregation_days, comparison_context, baseline_periods
             )
         else:
             return await self._investigate_anomaly_with_comparison(
                 node_path, start_date, end_date, anomaly_type, anomaly_magnitude, nps_context,
-                causal_filter, comparison_start_date, comparison_end_date
+                causal_filter, comparison_start_date, comparison_end_date,
+                anomaly_detection_mode, aggregation_days, comparison_context, baseline_periods
             )
     
     async def _investigate_anomaly_single_period(
@@ -1184,7 +1208,11 @@ class CausalExplanationAgent:
         end_date: str,
         anomaly_type: str,
         anomaly_magnitude: float,
-        nps_context: str = ""
+        nps_context: str = "",
+        anomaly_detection_mode: str = "target",
+        aggregation_days: int = 7,
+        comparison_context: str = "",
+        baseline_periods: int = 7
     ) -> str:
         """
         Single period investigation (no comparison)
@@ -1249,7 +1277,12 @@ class CausalExplanationAgent:
                 anomaly_magnitude=anomaly_magnitude,
                 current_nps=current_nps,
                 baseline_nps=baseline_nps,
-                nps_difference=nps_difference
+                nps_difference=nps_difference,
+                # New placeholders
+                anomaly_detection_mode=anomaly_detection_mode,
+                aggregation_days=aggregation_days,
+                comparison_context=comparison_context,
+                baseline_periods=baseline_periods
             )
             
             message_history.create_and_add_message(
@@ -1328,7 +1361,7 @@ class CausalExplanationAgent:
                 
                 # Execute tool with single period logic
                 tool_result = await self._execute_single_period_tool(
-                    current_tool, node_path, start_date, end_date, iteration
+                    current_tool, node_path, start_date, end_date, iteration, comparison_context, baseline_periods, anomaly_detection_mode, aggregation_days
                 )
                 
                 # Store tool context
@@ -1389,7 +1422,7 @@ class CausalExplanationAgent:
                             if current_tool:
                                 self.logger.info(f"🔄 Executing tool: {current_tool}")
                                 tool_result = await self._execute_single_period_tool(
-                                    current_tool, node_path, start_date, end_date, iteration
+                                    current_tool, node_path, start_date, end_date, iteration, comparison_context, baseline_periods, anomaly_detection_mode, aggregation_days
                                 )
 
                                 # Store tool context
@@ -1397,45 +1430,45 @@ class CausalExplanationAgent:
 
                                 # Get reflection for this tool execution
                                 reflection_result = await self._get_clean_reflection(
-                        system_prompt=system_prompt,
-                        tool_name=current_tool,
-                        tool_result=tool_result,
+                                    system_prompt=system_prompt,
+                                    tool_name=current_tool,
+                                    tool_result=tool_result,
                                     message_history=message_history
-                    )
+                                )
                     
                                 if reflection_result and isinstance(reflection_result, dict):
                                     reflection = reflection_result.get("reflection", "")
                                     next_tool_code = reflection_result.get("next_tool_code", "")
+                
+                                    if reflection:
+                                        self.tracker.add_explanation(reflection)
+                                        message_history.create_and_add_message(
+                                            content=reflection,
+                                            message_type=MessageType.AI,
+                                            agent=AgentName.CONVERSATIONAL
+                                        )
+                                        self.tracker.log_message("AI", f"REFLECTION: {reflection}")
+                                        self.logger.info(f"💭 Reflection captured for {current_tool}")
 
-                    if reflection:
-                        self.tracker.add_explanation(reflection)
-                        message_history.create_and_add_message(
-                            content=reflection,
-                            message_type=MessageType.AI,
-                            agent=AgentName.CONVERSATIONAL
-                        )
-                        self.tracker.log_message("AI", f"REFLECTION: {reflection}")
-                        self.logger.info(f"💭 Reflection captured for {current_tool}")
-
-                        # Continue with next iteration
-                        continue
-                    else:
-                        # Let the agent decide the next tool based on reflection and helper prompts
-                        current_tool = await self._determine_next_tool_from_reflection(
-                            reflection, current_tool, iteration, max_iterations
-                        )
-                    
-                    if current_tool:
-                        self.logger.info(f"🔄 Agent decided next tool: {current_tool}")
-                    else:
-                        self.logger.info(f"✅ Agent decided to end investigation")
-                        break
+                                        # Continue with next iteration
+                                        continue
+                                    else:
+                                        # Let the agent decide the next tool based on reflection and helper prompts
+                                        current_tool = await self._determine_next_tool_from_reflection(
+                                            reflection, current_tool, iteration, max_iterations
+                                        )
+                                
+                                    if current_tool:
+                                        self.logger.info(f"🔄 Agent decided next tool: {current_tool}")
+                                    else:
+                                        self.logger.info(f"✅ Agent decided to end investigation")
+                                        break
 
                 else:
                     self.logger.warning(f"⚠️ No reflection captured for {current_tool}")
                     # ❌ NO FALLBACK - INVESTIGATION MUST END IF AGENT CANNOT REFLECT
                     self.logger.error(f"❌ Investigation cannot continue without agent reflection")
-                    break   
+                    break
                 
             # Final synthesis for single period
             try:
@@ -1470,7 +1503,11 @@ class CausalExplanationAgent:
         nps_context: str = "",
         causal_filter: str = "vs L7d",
         comparison_start_date: datetime = None,
-        comparison_end_date: datetime = None
+        comparison_end_date: datetime = None,
+        anomaly_detection_mode: str = "target",
+        aggregation_days: int = 7,
+        comparison_context: str = "",
+        baseline_periods: int = 7
     ) -> str:
         """
         Comparative investigation (with comparison to other periods)
@@ -1548,7 +1585,12 @@ class CausalExplanationAgent:
                 causal_filter=causal_filter,
                 current_nps=current_nps,
                 baseline_nps=baseline_nps,
-                nps_difference=nps_difference
+                nps_difference=nps_difference,
+                # New placeholders
+                anomaly_detection_mode=anomaly_detection_mode,
+                aggregation_days=aggregation_days,
+                comparison_context=comparison_context,
+                baseline_periods=baseline_periods
             )
             
             self.logger.info(f"🔍 DEBUG COMPARATIVE: Template output preview: {user_input[:200]}...")
@@ -1631,7 +1673,7 @@ class CausalExplanationAgent:
                 
                 # Execute tool with comparative logic
                 tool_result = await self._execute_tool_comparative(
-                    current_tool, node_path, start_date, end_date, iteration
+                    current_tool, node_path, start_date, end_date, iteration, baseline_periods, comparison_context
                 )
                 
                 # Store tool context
@@ -1694,7 +1736,7 @@ class CausalExplanationAgent:
                             if current_tool:
                                 self.logger.info(f"🔄 Executing tool: {current_tool}")
                                 tool_result = await self._execute_tool_unified(
-                                    current_tool, node_path, start_date, end_date, iteration, "comparative"
+                                    current_tool, node_path, start_date, end_date, iteration, "comparative", baseline_periods, comparison_context
                                 )
                                 
                                 # Store tool context
@@ -1702,45 +1744,44 @@ class CausalExplanationAgent:
                                 
                                 # Get reflection for this tool execution
                                 reflection_result = await self._get_clean_reflection(
-                        system_prompt=system_prompt,
-                        tool_name=current_tool,
-                        tool_result=tool_result,
+                                    system_prompt=system_prompt,
+                                    tool_name=current_tool,
+                                    tool_result=tool_result,
                                     message_history=message_history,
                                     mode="comparative"
-                    )
+                                )
                     
                                 if reflection_result and isinstance(reflection_result, dict):
                                     reflection = reflection_result.get("reflection", "")
                                     next_tool_code = reflection_result.get("next_tool_code", "")
-
-                    if reflection:
-                        self.tracker.add_explanation(reflection)
-                        message_history.create_and_add_message(
-                            content=reflection,
-                            message_type=MessageType.AI,
-                            agent=AgentName.CONVERSATIONAL
-                        )
-                        self.tracker.log_message("AI", f"REFLECTION: {reflection}")
-                        self.logger.info(f"💭 Reflection captured for {current_tool}")
-
-                        # Continue with next iteration
-                        continue
-                    else:
-                        # Let the agent decide the next tool based on reflection and helper prompts
-                        current_tool = await self._determine_next_tool_from_reflection(
-                            reflection, current_tool, iteration, max_iterations
-                        )
-                        
-                        if current_tool:
-                            self.logger.info(f"🔄 Agent decided next tool: {current_tool}")
-                        else:
-                            self.logger.info(f"✅ Agent decided to end investigation")
-                            break
-
-                else:
-                    self.logger.warning(f"⚠️ No reflection captured for {current_tool}")
-                    # Fallback: end investigation if no reflection
-                    break
+                
+                                    if reflection:
+                                        self.tracker.add_explanation(reflection)
+                                        message_history.create_and_add_message(
+                                            content=reflection,
+                                            message_type=MessageType.AI,
+                                            agent=AgentName.CONVERSATIONAL
+                                        )
+                                        self.tracker.log_message("AI", f"REFLECTION: {reflection}")
+                                        self.logger.info(f"💭 Reflection captured for {current_tool}")
+                                        
+                                        # Continue with next iteration
+                                        continue
+                                    else:
+                                        # Let the agent decide the next tool based on reflection and helper prompts
+                                        current_tool = await self._determine_next_tool_from_reflection(
+                                            reflection, current_tool, iteration, max_iterations
+                                        )
+                                        
+                                        if current_tool:
+                                            self.logger.info(f"🔄 Agent decided next tool: {current_tool}")
+                                        else:
+                                            self.logger.info(f"✅ Agent decided to end investigation")
+                                            break
+                                else:
+                                    self.logger.warning(f"⚠️ No reflection captured for {current_tool}")
+                                    # Fallback: end investigation if no reflection
+                                    current_tool = None
 
         except Exception as e:
             self.logger.error(f"❌ Error crítico en investigación comparativa: {type(e).__name__}: {e}")
@@ -1772,14 +1813,16 @@ class CausalExplanationAgent:
         start_date: str, 
         end_date: str,
         iteration: int,
-        mode: str = "comparative"
+        mode: str = "comparative",
+        baseline_periods: int = 7,
+        comparison_context: str = ""
     ) -> str:
         """Execute a specific tool using unified mode-aware implementations"""
         try:
             if mode == "single":
                 return await self._execute_tool_single_period(tool_name, node_path, start_date, end_date, iteration)
             else:
-                return await self._execute_tool_comparative(tool_name, node_path, start_date, end_date, iteration)
+                return await self._execute_tool_comparative(tool_name, node_path, start_date, end_date, iteration, baseline_periods, comparison_context)
         except Exception as e:
             self.logger.error(f"❌ Error executing unified tool {tool_name} in {mode} mode: {type(e).__name__}: {str(e)}")
             return f"ERROR executing {tool_name} in {mode} mode: {type(e).__name__}: {str(e)}"
@@ -1790,7 +1833,9 @@ class CausalExplanationAgent:
         node_path: str, 
         start_date: str, 
         end_date: str,
-        iteration: int
+        iteration: int,
+        baseline_periods: int = 7,
+        comparison_context: str = ""
     ) -> str:
         """Execute a specific tool using comparative implementations"""
         try:
@@ -1826,7 +1871,9 @@ class CausalExplanationAgent:
                     node_path=node_path,
                     start_date=start_date,
                     end_date=end_date,
-                    comparison_mode=self.detection_mode
+                    comparison_mode=self.detection_mode,
+                    baseline_periods=baseline_periods,
+                    comparison_context=comparison_context
                 )
             elif tool_name == "customer_profile_tool":
                 return await self._customer_profile_tool(
@@ -1990,7 +2037,7 @@ class CausalExplanationAgent:
             self.logger.error(f"❌ Error getting helper prompt for {tool_name}: {e}")
             return "Error retrieving helper guidance."
     
-    async def _operative_data_tool(self, node_path: str, start_date, end_date, comparison_days: int = 7, comparison_mode: str = "mean") -> str:
+    async def _operative_data_tool(self, node_path: str, start_date, end_date, comparison_days: int = 7, comparison_mode: str = "mean", baseline_periods: int = 7, comparison_context: str = "") -> str:
         """
         Tool for analyzing operational metrics using parametrized comparison logic.
         
@@ -2068,6 +2115,7 @@ class CausalExplanationAgent:
             target_date_str = target_dt.strftime('%Y-%m-%d')
             # Use the stored anomaly type instead of "unknown"
             anomaly_type_for_analysis = getattr(self, 'current_anomaly_type', 'unknown')
+            self.logger.info(f"🔍 DEBUG OPERATIVE: anomaly_type_for_analysis = '{anomaly_type_for_analysis}'")
             
             # Calculate aggregation_days from date range
             aggregation_days = (target_dt - start_dt).days + 1
@@ -2088,7 +2136,10 @@ class CausalExplanationAgent:
             
             # Add comparison mode info
             comparison_info = f"📊 **OPERATIVE ANALYSIS** (Comparison: {comparison_mode.upper()})"
-            if comparison_mode == "vslast":
+            if comparison_context:
+                # Use the provided comparison context directly
+                comparison_info += f" {comparison_context}"
+            elif comparison_mode == "vslast":
                 comparison_date = analysis.get("comparison_date", "unknown")
                 comparison_info += f" vs {comparison_date}"
             elif comparison_mode == "mean":
@@ -2120,19 +2171,20 @@ class CausalExplanationAgent:
                         
                         # Determine if change supports or contradicts NPS anomaly
                         correlation_status = "❓"
-                        if anomaly_type_for_analysis.lower() == 'negative':
-                            if metric in ['OTP15_adjusted']:  # Direct correlation
+                        self.logger.info(f"🔍 DEBUG CORRELATION: metric='{metric}', anomaly_type='{anomaly_type_for_analysis}', delta={delta}")
+                        if anomaly_type_for_analysis == '-':
+                            if metric in ['OTP15_adjusted', 'Otp15', 'OTP15']:  # Direct correlation - worse punctuality = lower NPS
                                 correlation_status = "✅ Explica NPS↓" if delta < 0 else "❌ Contradice NPS↓"
-                            elif metric in ['Load_Factor', 'Misconex', 'Mishandling']:  # Inverse correlation
+                            elif metric in ['Load_Factor', 'Misconex', 'Mishandling']:  # Inverse correlation - more issues = lower NPS
                                 correlation_status = "✅ Explica NPS↓" if delta > 0 else "❌ Contradice NPS↓"
-                        elif anomaly_type_for_analysis.lower() == 'positive':
-                            if metric in ['OTP15_adjusted']:  # Direct correlation
+                        elif anomaly_type_for_analysis == '+':
+                            if metric in ['OTP15_adjusted', 'Otp15', 'OTP15']:  # Direct correlation - better punctuality = higher NPS
                                 correlation_status = "✅ Explica NPS↑" if delta > 0 else "❌ Contradice NPS↑"
-                            elif metric in ['Load_Factor', 'Misconex', 'Mishandling']:  # Inverse correlation
+                            elif metric in ['Load_Factor', 'Misconex', 'Mishandling']:  # Inverse correlation - fewer issues = higher NPS
                                 correlation_status = "✅ Explica NPS↑" if delta < 0 else "❌ Contradice NPS↑"
                         
                         metric_display = metric.replace('_', ' ').replace('adjusted', '').title()
-                        operative_parts.append(f"   • **{metric_display}**: {current_val} vs {previous_val} ({direction}{abs(delta):.1f}, {change_pct:+.1f}%) {correlation_status}")
+                        operative_parts.append(f"   • **{metric_display}**: {current_val} vs {previous_val} ({direction}{abs(delta):.1f}) {correlation_status}")
                     else:
                         baseline_value = data.get('week_average', data.get('previous_value', 'N/A'))
                         day_val = data.get('day_value', data.get('current_value', 'N/A'))
@@ -4626,7 +4678,7 @@ class CausalExplanationAgent:
             message_type=MessageType.USER
         )
         
-        self.tracker.log_message("USER", f"ENHANCED_FINAL_SYNTHESIS_REQUEST: {enhanced_final_request}")
+        self.tracker.log_message("USER", enhanced_final_request)
         
         # FINAL AI MESSAGE: Synthesis
         try:
@@ -4803,13 +4855,34 @@ class CausalExplanationAgent:
     def export_conversation(self, filename: Optional[str] = None, node_path: Optional[str] = None, start_date: Optional[str] = None, end_date: Optional[str] = None) -> str:
         """Export the conversation log to JSON file"""
         try:
+            print(f"🔍 DEBUG EXPORT: export_conversation called with start_date='{start_date}', end_date='{end_date}'")
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             
             if filename is None:
                 # Create a descriptive filename with period and segment
                 safe_node_path = node_path.replace('/', '_') if node_path else "unknown"
-                period_info = f"{start_date}_{end_date}" if start_date and end_date else timestamp[:8]
+                
+                # Use actual data dates if available, otherwise fallback to timestamp
+                if start_date and end_date:
+                    # Convert to string format if they're datetime objects
+                    if hasattr(start_date, 'strftime'):
+                        start_str = start_date.strftime('%Y-%m-%d')
+                    else:
+                        start_str = str(start_date)
+                    
+                    if hasattr(end_date, 'strftime'):
+                        end_str = end_date.strftime('%Y-%m-%d')
+                    else:
+                        end_str = str(end_date)
+                    
+                    period_info = f"{start_str}_{end_str}"
+                    print(f"🔍 DEBUG EXPORT: Using dates for filename: start_str='{start_str}', end_str='{end_str}', period_info='{period_info}'")
+                else:
+                    period_info = timestamp[:8]
+                    print(f"🔍 DEBUG EXPORT: No dates provided, using timestamp: period_info='{period_info}'")
+                
                 filename = f"causal_{period_info}_{safe_node_path}_{timestamp}.json"
+                print(f"🔍 DEBUG EXPORT: Final filename: '{filename}'")
             
             # Create agent_conversations directory structure
             base_dir = Path(__file__).parent.parent.parent.parent.parent / 'dashboard_analyzer' / 'agent_conversations' / 'causal_explanation'
@@ -5522,6 +5595,7 @@ Proporciona análisis estructurado, específico y respaldado por números."""
                 content=ncs_helper_prompt,
                 message_type=MessageType.USER
             )
+            self.tracker.log_message("USER", ncs_helper_prompt)
             
             # Get LLM analysis
             self.logger.info(f"🔄 DEBUG: About to call LLM with {len(sample_incidents)} incidents and route disruption data...")

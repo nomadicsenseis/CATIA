@@ -30,6 +30,35 @@ def debug_print(message):
     if DEBUG_MODE:
         print(f"🔍 DEBUG: {message}")
 
+def generate_comparison_context(anomaly_detection_mode: str, aggregation_days: int, baseline_periods: int = 7) -> str:
+    """
+    Generate comparison context explanation based on anomaly detection mode, aggregation days and baseline periods
+    
+    Args:
+        anomaly_detection_mode: 'vslast', 'mean', or 'target'
+        aggregation_days: Number of days per period (1, 7, 14, 30, etc.)
+        baseline_periods: Number of periods to use as baseline (default: 7)
+    
+    Returns:
+        String explaining the comparison context
+    """
+    if anomaly_detection_mode == 'vslast':
+        if aggregation_days == 7:
+            return "• **Comparación**: vs última semana (período previo de 7 días)"
+        elif aggregation_days == 1:
+            return "• **Comparación**: vs día anterior (período previo de 1 día)"
+        else:
+            return f"• **Comparación**: vs período previo ({aggregation_days} días)"
+    elif anomaly_detection_mode == 'mean':
+        if aggregation_days == 1:
+            return f"• **Comparación**: vs media de los últimos {baseline_periods} días"
+        else:
+            return f"• **Comparación**: vs media de los últimos {baseline_periods} períodos ({aggregation_days} días cada uno)"
+    elif anomaly_detection_mode == 'target':
+        return "• **Comparación**: vs target mensual establecido"
+    else:
+        return f"• **Comparación**: modo '{anomaly_detection_mode}' no reconocido"
+
 def debug_save_hierarchical_data(hierarchical_explanation: str, period: int, date_param: Optional[str] = None, 
                                 causal_explanations: Optional[dict] = None, relationships: Optional[dict] = None):
     """Save hierarchical explanation data for interpreter debugging"""
@@ -474,29 +503,79 @@ async def show_all_anomaly_periods_with_explanations(analysis_data: dict, segmen
         # Collect explanations for anomalous nodes (quietly, no verbose output)
         explanations = {}
         nodes_with_anomalies = [node for node, state in period_anomalies.items() if state in ['+', '-']]
-        
+
+        # ENHANCEMENT: Always include Global segment in causal analysis if it has valid data
+        if nodes_with_anomalies:
+            # Check if Global has valid data (not "?" or missing)
+            global_state = period_anomalies.get("Global", "?")
+            print(f"🔍 DEBUG GLOBAL STATE: global_state='{global_state}', period_anomalies keys: {list(period_anomalies.keys())}")
+            
+            # Always recalculate Global's anomaly state based on deviation (override detector's decision)
+            global_deviation = period_deviations.get("Global", 0.0)
+            print(f"🔍 DEBUG GLOBAL CALCULATION: global_deviation={global_deviation}")
+            if global_deviation > 0:
+                global_state = "+"  # Positive anomaly
+            elif global_deviation < 0:
+                global_state = "-"  # Negative anomaly
+            else:
+                global_state = "N"  # Neutral (only when deviation is exactly 0)
+            # Always update Global in period_anomalies with calculated state
+            period_anomalies["Global"] = global_state
+            print(f"      🔍 DEBUG GLOBAL: Override Global state='{global_state}' based on deviation={global_deviation}")
+            
+            if "Global" not in nodes_with_anomalies:
+                # Always add Global to the analysis (it's always analyzed)
+                nodes_with_anomalies.append("Global")
+                print(f"      🔍 ENHANCED: Analyzing {len(nodes_with_anomalies)} segments (added Global with state '{global_state}' + {len([n for n in nodes_with_anomalies if n != 'Global'])} anomalous nodes)")
+            elif "Global" in nodes_with_anomalies:
+                print(f"      📊 Analyzing {len(nodes_with_anomalies)} anomalous segments (including Global)")
+            else:
+                print(f"      📊 Analyzing {len(nodes_with_anomalies)} anomalous segments (Global has no valid data)")
+            
+            # PRIORITY: Move Global to the front to ensure it's always processed first
+            if "Global" in nodes_with_anomalies:
+                nodes_with_anomalies.remove("Global")
+                nodes_with_anomalies.insert(0, "Global")
+                print(f"      🎯 PRIORITY: Global moved to front of processing queue")
+
         if nodes_with_anomalies:
             # Collect explanations for anomalous nodes
             total_nodes = len(nodes_with_anomalies)
             successful_explanations = 0
-            
+
             print(f"      📊 Processing {total_nodes} anomalous nodes for causal explanations...")
             
             for i, node_path in enumerate(nodes_with_anomalies, 1):
                 try:
                     anomaly_state = period_anomalies.get(node_path, "?")
                     deviation_value = period_deviations.get(node_path, 0.0)  # Get actual deviation
+                    print(f"🔍 DEBUG GLOBAL ANOMALY: node_path='{node_path}', period_anomalies.get()='{anomaly_state}', deviation_value={deviation_value}")
+                    print(f"🔍 DEBUG GLOBAL ANOMALY: period_anomalies keys: {list(period_anomalies.keys())}")
+                    print(f"🔍 DEBUG GLOBAL ANOMALY: period_anomalies values: {list(period_anomalies.values())}")
+                    
+                    # For Global node, determine anomaly state based on sign of change (using same nomenclature as other nodes)
+                    if node_path == "Global" and anomaly_state == "?":
+                        if deviation_value > 0:
+                            anomaly_state = "+"  # Positive anomaly
+                        elif deviation_value < 0:
+                            anomaly_state = "-"  # Negative anomaly
+                        else:
+                            anomaly_state = "N"  # Neutral
+                    
                     print(f"      🔍 [{i}/{total_nodes}] Collecting explanation for {node_path} (state: {anomaly_state}, deviation: {deviation_value:+.1f})")
                     
                     # Calculate correct date range if analysis_date is available
                     start_date, end_date = None, None
                     analysis_date = analysis_data.get('analysis_date')
                     if analysis_date:
+                        print(f"🔍 DEBUG DATE FLOW: analysis_date={analysis_date}, period={period}, aggregation_days={aggregation_days}")
                         start_date, end_date = calculate_period_date_range(analysis_date, period, aggregation_days)
+                        print(f"🔍 DEBUG DATE FLOW: calculate_period_date_range returned: start_date={start_date}, end_date={end_date}")
                         print(f"         📅 Using calculated date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
                     
-                    # Build NPS context for the causal agent
+                    # Build enriched NPS context for the causal agent
                     nps_context = ""
+                    comparison_context = ""
                     print(f"🔍 DEBUG NPS CONTEXT BUILD: period_nps_values keys: {list(period_nps_values.keys()) if period_nps_values else 'None'}", file=sys.stderr)
                     print(f"🔍 DEBUG NPS CONTEXT BUILD: Looking for node_path: {node_path}", file=sys.stderr)
                     print(f"🔍 DEBUG NPS CONTEXT BUILD: Node in period_nps_values: {node_path in period_nps_values if period_nps_values else False}", file=sys.stderr)
@@ -507,6 +586,13 @@ async def show_all_anomaly_periods_with_explanations(analysis_data: dict, segmen
                             current_nps = nps_data.get('current', 'N/A')
                             baseline_nps = nps_data.get('baseline', 'N/A')
                             nps_context = f"Current NPS: {current_nps}, Baseline NPS: {baseline_nps}"
+                            
+                            # Generate comparison context
+                            comparison_context = generate_comparison_context(
+                                analysis_data.get('anomaly_detection_mode', 'target'), 
+                                analysis_data.get('aggregation_days', 7),
+                                analysis_data.get('baseline_periods', 7)
+                            )
                         else:
                             nps_context = f"NPS: {nps_data}"
                     else:
@@ -522,7 +608,11 @@ async def show_all_anomaly_periods_with_explanations(analysis_data: dict, segmen
                             end_date=end_date,
                             anomaly_magnitude=deviation_value,  # ✅ Now passing actual deviation
                             nps_context=nps_context,  # ✅ Now passing NPS context
-                            causal_filter=causal_filter
+                            causal_filter=causal_filter,
+                            # New parameters for enriched context
+                            anomaly_detection_mode=analysis_data.get('anomaly_detection_mode', 'target'),
+                            comparison_context=comparison_context,
+                            baseline_periods=analysis_data.get('baseline_periods', 7)
                         ),
                         timeout=600.0
                     )
@@ -1820,14 +1910,59 @@ async def analyze_single_day(target_date: datetime, segment: str, explanation_mo
         # Collect explanations for anomalous nodes
         explanations = {}
         nodes_with_anomalies = [node for node, state in period_anomalies.items() if state in ['+', '-']]
-        
+
+        # ENHANCEMENT: Always include Global segment in causal analysis if it has valid data
+        if nodes_with_anomalies:
+            # Check if Global has valid data (not "?" or missing)
+            global_state = period_anomalies.get("Global", "?")
+            print(f"🔍 DEBUG GLOBAL STATE: global_state='{global_state}', period_anomalies keys: {list(period_anomalies.keys())}")
+            
+            # Always recalculate Global's anomaly state based on deviation (override detector's decision)
+            global_deviation = period_deviations.get("Global", 0.0)
+            print(f"🔍 DEBUG GLOBAL CALCULATION: global_deviation={global_deviation}")
+            if global_deviation > 0:
+                global_state = "+"  # Positive anomaly
+            elif global_deviation < 0:
+                global_state = "-"  # Negative anomaly
+            else:
+                global_state = "N"  # Neutral (only when deviation is exactly 0)
+            # Always update Global in period_anomalies with calculated state
+            period_anomalies["Global"] = global_state
+            print(f"      🔍 DEBUG GLOBAL: Override Global state='{global_state}' based on deviation={global_deviation}")
+            
+            if "Global" not in nodes_with_anomalies and global_state != "?":
+                # Add Global to the analysis even if it doesn't have anomalies but has valid data
+                nodes_with_anomalies.append("Global")
+                print(f"🔍 ENHANCED: Analyzing {len(nodes_with_anomalies)} segments (added Global with state '{global_state}' + {len([n for n in nodes_with_anomalies if n != 'Global'])} anomalous nodes)")
+            elif "Global" in nodes_with_anomalies:
+                print(f"🔍 📊 Analyzing {len(nodes_with_anomalies)} anomalous segments (including Global)")
+            else:
+                print(f"🔍 📊 Analyzing {len(nodes_with_anomalies)} anomalous segments (Global has no valid data)")
+            
+            # PRIORITY: Move Global to the front to ensure it's always processed first
+            if "Global" in nodes_with_anomalies:
+                nodes_with_anomalies.remove("Global")
+                nodes_with_anomalies.insert(0, "Global")
+                print(f"🎯 PRIORITY: Global moved to front of processing queue")
+
         if nodes_with_anomalies:
             print(f"🔍 Collecting explanations for {len(nodes_with_anomalies)} anomalous nodes: {nodes_with_anomalies}")
             
             for node_path in nodes_with_anomalies:
                 try:
-                    # Get anomaly info
+                    # Get anomaly info - determine type based on sign of change for Global
                     anomaly_type = period_anomalies.get(node_path, 'unknown')
+                    print(f"🔍 DEBUG GLOBAL ANOMALY: node_path='{node_path}', period_anomalies.get()='{anomaly_type}', deviation_value={period_deviations.get(node_path, 0.0)}")
+                    
+                    # For Global node, determine anomaly state based on sign of change (using same nomenclature as other nodes)
+                    if node_path == "Global" and anomaly_type == "unknown":
+                        deviation_value = period_deviations.get(node_path, 0.0)
+                        if deviation_value > 0:
+                            anomaly_type = "+"  # Positive anomaly
+                        elif deviation_value < 0:
+                            anomaly_type = "-"  # Negative anomaly
+                        else:
+                            anomaly_type = "N"  # Neutral
                     
                     # Calculate magnitude from NPS values if available, fallback to period_deviations
                     anomaly_magnitude = 0.0
@@ -1839,11 +1974,14 @@ async def analyze_single_day(target_date: datetime, segment: str, explanation_mo
                         # Fallback to period_deviations
                         anomaly_magnitude = period_deviations.get(node_path, 0.0)
                     
+                    print(f"🔍 DEBUG GLOBAL ANOMALY: node_path='{node_path}', anomaly_type='{anomaly_type}', anomaly_magnitude={anomaly_magnitude}")
+                    
                     # Generate explanation using the interpreter
                     explanation = await interpreter.explain_anomaly(
                         node_path=node_path,
                         target_period=period,
                         aggregation_days=1,
+                        anomaly_state=anomaly_type,  # Pass the determined anomaly type
                         start_date=start_date,
                         end_date=end_date,
                         causal_filter=None  # Single mode
@@ -1970,7 +2108,9 @@ async def run_flexible_analysis_silent(data_folder: str, analysis_date: datetime
         'total_periods': periods,
         'periods_analyzed': periods_to_analyze,
         'analysis_date': analysis_date,
-        'date_parameter': date_parameter
+        'date_parameter': date_parameter,
+        'anomaly_detection_mode': anomaly_detection_mode,
+        'baseline_periods': baseline_periods
     }
 
 async def run_flexible_analysis(data_folder: str, explanation_mode: str = "agent", analysis_date=None, anomaly_detection_mode: str = "target", baseline_periods: int = 7, periods: int = 7):
@@ -2022,7 +2162,9 @@ async def run_flexible_analysis(data_folder: str, explanation_mode: str = "agent
             'anomaly_periods': anomaly_periods,
             'total_periods': periods,
             'periods_analyzed': periods_to_analyze,
-            'analysis_date': analysis_date
+            'analysis_date': analysis_date,
+            'anomaly_detection_mode': anomaly_detection_mode,
+            'baseline_periods': baseline_periods
         }
     else:
         print(f"✅ No anomalies detected in the {periods} most recent periods")
@@ -2033,7 +2175,9 @@ async def run_flexible_analysis(data_folder: str, explanation_mode: str = "agent
             'anomaly_periods': [],
             'total_periods': periods,
             'periods_analyzed': periods_to_analyze,
-            'analysis_date': analysis_date
+            'analysis_date': analysis_date,
+            'anomaly_detection_mode': anomaly_detection_mode,
+            'baseline_periods': baseline_periods
         }
 
 async def run_weekly_current_vs_average_analysis_silent(data_folder: str, analysis_date=None, anomaly_detection_mode: str = "target", baseline_periods: int = 7):
@@ -2086,7 +2230,9 @@ async def run_weekly_current_vs_average_analysis_silent(data_folder: str, analys
         'anomaly_periods': anomaly_periods,
         'total_periods': 1,  # Only analyzing current week
         'periods_analyzed': [current_week_period],
-        'analysis_date': analysis_date
+        'analysis_date': analysis_date,
+        'anomaly_detection_mode': anomaly_detection_mode,
+        'baseline_periods': baseline_periods
     }
 
 async def show_silent_anomaly_analysis(analysis_data: dict, analysis_type: str, show_all_periods=False, segment: str = "Global", explanation_mode: str = "agent", causal_filter: str = "vs L7d", comparison_start_date: datetime = None, comparison_end_date: datetime = None):
@@ -2210,7 +2356,41 @@ async def show_silent_anomaly_analysis(analysis_data: dict, analysis_type: str, 
         # Collect explanations for anomalous nodes silently
         explanations = {}
         nodes_with_anomalies = [node for node, state in period_anomalies.items() if state in ['+', '-']]
-        
+
+        # ENHANCEMENT: Always include Global segment in causal analysis if it has valid data
+        if nodes_with_anomalies:
+            # Check if Global has valid data (not "?" or missing)
+            global_state = period_anomalies.get("Global", "?")
+            print(f"🔍 DEBUG GLOBAL STATE: global_state='{global_state}', period_anomalies keys: {list(period_anomalies.keys())}")
+            
+            # Always recalculate Global's anomaly state based on deviation (override detector's decision)
+            global_deviation = period_deviations.get("Global", 0.0)
+            print(f"🔍 DEBUG GLOBAL CALCULATION: global_deviation={global_deviation}")
+            if global_deviation > 0:
+                global_state = "+"  # Positive anomaly
+            elif global_deviation < 0:
+                global_state = "-"  # Negative anomaly
+            else:
+                global_state = "N"  # Neutral (only when deviation is exactly 0)
+            # Always update Global in period_anomalies with calculated state
+            period_anomalies["Global"] = global_state
+            print(f"      🔍 DEBUG GLOBAL: Override Global state='{global_state}' based on deviation={global_deviation}")
+            
+            if "Global" not in nodes_with_anomalies and global_state != "?":
+                # Add Global to the analysis even if it doesn't have anomalies but has valid data
+                nodes_with_anomalies.append("Global")
+                print(f"🔍 ENHANCED: Analyzing {len(nodes_with_anomalies)} segments (added Global with state '{global_state}' + {len([n for n in nodes_with_anomalies if n != 'Global'])} anomalous nodes)", file=sys.stderr)
+            elif "Global" in nodes_with_anomalies:
+                print(f"🔍 📊 Analyzing {len(nodes_with_anomalies)} anomalous segments (including Global)", file=sys.stderr)
+            else:
+                print(f"🔍 📊 Analyzing {len(nodes_with_anomalies)} anomalous segments (Global has no valid data)", file=sys.stderr)
+            
+            # PRIORITY: Move Global to the front to ensure it's always processed first
+            if "Global" in nodes_with_anomalies:
+                nodes_with_anomalies.remove("Global")
+                nodes_with_anomalies.insert(0, "Global")
+                print(f"🎯 PRIORITY: Global moved to front of processing queue", file=sys.stderr)
+
         if nodes_with_anomalies:
             # DEBUG: Temporarily NOT suppressing output to see what explanations are being collected
             print(f"🔍 DEBUG: Collecting explanations for {len(nodes_with_anomalies)} anomalous nodes: {nodes_with_anomalies}", file=sys.stderr)
@@ -2221,11 +2401,24 @@ async def show_silent_anomaly_analysis(analysis_data: dict, analysis_type: str, 
                         try:
                             anomaly_state = period_anomalies.get(node_path, "?")
                             
+                            # For Global node, determine anomaly state based on sign of change (using same nomenclature as other nodes)
+                            if node_path == "Global" and anomaly_state == "?":
+                                # Get deviation value to determine type
+                                deviation_value = period_deviations.get(node_path, 0.0)
+                                if deviation_value > 0:
+                                    anomaly_state = "+"  # Positive anomaly
+                                elif deviation_value < 0:
+                                    anomaly_state = "-"  # Negative anomaly
+                                else:
+                                    anomaly_state = "N"  # Neutral
+                            
                             # Calculate correct date range if analysis_date is available
                             start_date, end_date = None, None
                             analysis_date = analysis_data.get('analysis_date')
                             if analysis_date:
+                                print(f"🔍 DEBUG SINGLE_MODE_DATES: analysis_date={analysis_date}, period={period}, aggregation_days={aggregation_days}")
                                 start_date, end_date = calculate_period_date_range(analysis_date, period, aggregation_days)
+                                print(f"🔍 DEBUG SINGLE_MODE_DATES: calculated start_date={start_date}, end_date={end_date}")
                             
                             # Build NPS context for the causal agent and calculate anomaly magnitude
                             nps_context = ""
@@ -2239,6 +2432,14 @@ async def show_silent_anomaly_analysis(analysis_data: dict, analysis_type: str, 
                                     current_nps = nps_data.get('current', 'N/A')
                                     baseline_nps = nps_data.get('baseline', 'N/A')
                                     nps_context = f"Current NPS: {current_nps}, Baseline NPS: {baseline_nps}"
+                                    
+                                    # Generate comparison context
+                                    comparison_context = generate_comparison_context(
+                                        analysis_data.get('anomaly_detection_mode', 'target'), 
+                                        analysis_data.get('aggregation_days', 7),
+                                        analysis_data.get('baseline_periods', 7)
+                                    )
+                                    
                                     # Calculate anomaly magnitude from NPS values
                                     if isinstance(current_nps, (int, float)) and isinstance(baseline_nps, (int, float)):
                                         anomaly_magnitude = current_nps - baseline_nps
@@ -2259,7 +2460,11 @@ async def show_silent_anomaly_analysis(analysis_data: dict, analysis_type: str, 
                                     nps_context=nps_context,  # ✅ Now passing NPS context
                                     causal_filter=causal_filter,
                                     comparison_start_date=comparison_start_date,
-                                    comparison_end_date=comparison_end_date
+                                    comparison_end_date=comparison_end_date,
+                                    # New parameters for enriched context
+                                    anomaly_detection_mode=analysis_data.get('anomaly_detection_mode', 'target'),
+                                    comparison_context=comparison_context,
+                                    baseline_periods=analysis_data.get('baseline_periods', 7)
                                 ),
                                 timeout=1500.0  # 25 minutes for complex Claude Sonnet 4 analysis
                             )
@@ -2427,7 +2632,41 @@ async def show_clean_anomaly_analysis(analysis_data: dict, segment: str = "Globa
         explanations = {}
         workflow_decisions = {}
         nodes_with_anomalies = [node for node, state in period_anomalies.items() if state in ['+', '-']]
-        
+
+        # ENHANCEMENT: Always include Global segment in causal analysis if it has valid data
+        if nodes_with_anomalies:
+            # Check if Global has valid data (not "?" or missing)
+            global_state = period_anomalies.get("Global", "?")
+            print(f"🔍 DEBUG GLOBAL STATE: global_state='{global_state}', period_anomalies keys: {list(period_anomalies.keys())}")
+            
+            # Always recalculate Global's anomaly state based on deviation (override detector's decision)
+            global_deviation = period_deviations.get("Global", 0.0)
+            print(f"🔍 DEBUG GLOBAL CALCULATION: global_deviation={global_deviation}")
+            if global_deviation > 0:
+                global_state = "+"  # Positive anomaly
+            elif global_deviation < 0:
+                global_state = "-"  # Negative anomaly
+            else:
+                global_state = "N"  # Neutral (only when deviation is exactly 0)
+            # Always update Global in period_anomalies with calculated state
+            period_anomalies["Global"] = global_state
+            print(f"      🔍 DEBUG GLOBAL: Override Global state='{global_state}' based on deviation={global_deviation}")
+            
+            if "Global" not in nodes_with_anomalies and global_state != "?":
+                # Add Global to the analysis even if it doesn't have anomalies but has valid data
+                nodes_with_anomalies.append("Global")
+                print(f"🔍 ENHANCED: Analyzing {len(nodes_with_anomalies)} segments (added Global with state '{global_state}' + {len([n for n in nodes_with_anomalies if n != 'Global'])} anomalous nodes)")
+            elif "Global" in nodes_with_anomalies:
+                print(f"📊 Analyzing {len(nodes_with_anomalies)} anomalous segments (including Global)")
+            else:
+                print(f"📊 Analyzing {len(nodes_with_anomalies)} anomalous segments (Global has no valid data)")
+            
+            # PRIORITY: Move Global to the front to ensure it's always processed first
+            if "Global" in nodes_with_anomalies:
+                nodes_with_anomalies.remove("Global")
+                nodes_with_anomalies.insert(0, "Global")
+                print(f"🎯 PRIORITY: Global moved to front of processing queue")
+
         if nodes_with_anomalies:
             print(f"\n🤖 AGENT WORKFLOW ANALYSIS:")
             print("-" * 40)
@@ -2438,6 +2677,15 @@ async def show_clean_anomaly_analysis(analysis_data: dict, segment: str = "Globa
                 try:
                     anomaly_state = period_anomalies.get(node_path, "?")
                     deviation = period_deviations.get(node_path, 0)
+                    
+                    # For Global node, determine anomaly state based on sign of change (using same nomenclature as other nodes)
+                    if node_path == "Global" and anomaly_state == "?":
+                        if deviation > 0:
+                            anomaly_state = "+"  # Positive anomaly
+                        elif deviation < 0:
+                            anomaly_state = "-"  # Negative anomaly
+                        else:
+                            anomaly_state = "N"  # Neutral
                     
                     # Calculate anomaly magnitude from deviation since NPS values not available
                     anomaly_magnitude = deviation
@@ -3343,13 +3591,20 @@ def calculate_period_date_range(analysis_date: datetime, target_period: int, agg
         - Period 1: (2025-01-14, 2025-01-20) - week ending on analysis date
         - Period 2: (2025-01-07, 2025-01-13) - previous week
     """
+    print(f"🔍 DEBUG calculate_period_date_range: analysis_date={analysis_date}, target_period={target_period}, aggregation_days={aggregation_days}")
+    
     # Calculate how many days back from analysis date
     days_back = (target_period - 1) * aggregation_days
+    print(f"🔍 DEBUG calculate_period_date_range: days_back = (target_period - 1) * aggregation_days = ({target_period} - 1) * {aggregation_days} = {days_back}")
     
     # For daily analysis, each period is exactly one day
     # For weekly analysis, each period is 7 days, etc.
     period_end = analysis_date - timedelta(days=days_back)
     period_start = period_end - timedelta(days=aggregation_days - 1)
+    
+    print(f"🔍 DEBUG calculate_period_date_range: period_end = analysis_date - {days_back} days = {period_end}")
+    print(f"🔍 DEBUG calculate_period_date_range: period_start = period_end - {aggregation_days - 1} days = {period_start}")
+    print(f"🔍 DEBUG calculate_period_date_range: returning ({period_start}, {period_end})")
     
     return period_start, period_end
 

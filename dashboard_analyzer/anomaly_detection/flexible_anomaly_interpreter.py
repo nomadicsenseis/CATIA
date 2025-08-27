@@ -77,7 +77,7 @@ class FlexibleAnomalyInterpreter:
                 self.explanation_mode = "raw"
         
     async def explain_anomaly(self, node_path: str, target_period: int, aggregation_days: int, 
-                            anomaly_state: str = None, start_date: datetime = None, end_date: datetime = None, anomaly_magnitude: float = None, nps_context: str = "", causal_filter: str = "vs L7d", comparison_start_date: datetime = None, comparison_end_date: datetime = None) -> str:
+                            anomaly_state: str = None, start_date: datetime = None, end_date: datetime = None, anomaly_magnitude: float = None, nps_context: str = "", causal_filter: str = "vs L7d", comparison_start_date: datetime = None, comparison_end_date: datetime = None, anomaly_detection_mode: str = "target", comparison_context: str = "", baseline_periods: int = 7) -> str:
         """
         Generate comprehensive explanation for an anomaly in a flexible time period
         
@@ -155,12 +155,8 @@ class FlexibleAnomalyInterpreter:
             
             start_date, end_date = date_range
             
-            # 2. Determine anomaly type for analysis
-            anomaly_type = "unknown"
-            if anomaly_state == "+":
-                anomaly_type = "positive"
-            elif anomaly_state == "-":
-                anomaly_type = "negative"
+            # 2. Use anomaly_state directly (no mapping needed)
+            anomaly_type = anomaly_state  # Pass through: '+', '-', 'N', or 'unknown'
             
             # 3. Choose explanation method based on mode
             if self.explanation_mode == "agent" and self.causal_agent:
@@ -188,16 +184,27 @@ class FlexibleAnomalyInterpreter:
                 # Calculate final magnitude
                 final_magnitude = anomaly_magnitude if anomaly_magnitude is not None else 0.0
                 
+                # Debug the dates being passed
+                start_date_str = start_date.strftime('%Y-%m-%d')
+                end_date_str = end_date.strftime('%Y-%m-%d')
+                print(f"🔍 DEBUG INTERPRETER: Passing dates to causal agent: start_date='{start_date_str}', end_date='{end_date_str}'")
+                print(f"🔍 DEBUG INTERPRETER: Original dates - start_date={start_date}, end_date={end_date}")
+                
                 explanation = await self.causal_agent.investigate_anomaly(
                     node_path=node_path,
-                    start_date=start_date.strftime('%Y-%m-%d'),
-                    end_date=end_date.strftime('%Y-%m-%d'),
+                    start_date=start_date_str,
+                    end_date=end_date_str,
                     anomaly_type=anomaly_type,
                     anomaly_magnitude=final_magnitude,
                     nps_context=nps_context,  # Pass the NPS context from main.py
                     causal_filter=causal_filter,
                     comparison_start_date=comparison_start_date,
-                    comparison_end_date=comparison_end_date
+                    comparison_end_date=comparison_end_date,
+                    # New parameters for enriched context
+                    anomaly_detection_mode=anomaly_detection_mode,
+                    aggregation_days=aggregation_days,
+                    comparison_context=comparison_context,
+                    baseline_periods=baseline_periods
                 )
                 
                 # Add header to distinguish agent explanations
