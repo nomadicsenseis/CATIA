@@ -294,153 +294,20 @@ class AnomalyInterpreterAgent:
     
     async def interpret_anomaly_tree(self, tree_data: str, date: Optional[str] = None, segment: Optional[str] = None) -> str:
         """
-        Interpret a causal agent explanation using hierarchical step-by-step methodology.
+        Interpret a causal agent explanation using conversational hierarchical methodology.
         
         Args:
             tree_data: The causal agent explanation/narrative (not an anomaly tree)
             date: Optional date for context (e.g., "2025-05-24")
+            segment: Optional segment for analysis
             
         Returns:
-            Structured interpretation following the 5-step hierarchical methodology
+            Structured interpretation following the conversational hierarchical methodology
         """
-        start_time = datetime.now()
+        self.logger.info("🔄 Using CONVERSATIONAL hierarchical interpretation (self-conversation enabled)")
         
-        try:
-            # Create message history for step-by-step analysis
-            message_history = MessageHistory(logger=self.logger)
-            
-            # Use system prompt from YAML configuration based on study mode
-            system_prompt = self._get_system_prompt()
-            message_history.create_and_add_message(
-                content=system_prompt,
-                message_type=MessageType.SYSTEM
-            )
-            
-            # Add initial user prompt with causal agent explanation(s)
-            date_str = date if date else 'No especificada'
-            
-            # Truncate tree data if too large to prevent token overflow
-            max_tree_data_size = 100000  # 100KB limit to prevent token overflow
-            if len(tree_data) > max_tree_data_size:
-                self.logger.warning(f"⚠️ Tree data too large ({len(tree_data)} chars) - truncating to {max_tree_data_size} chars")
-                tree_data = tree_data[:max_tree_data_size] + "\n\n[... DATA TRUNCATED DUE TO SIZE ...]"
-            
-            if "NODO:" in tree_data and tree_data.count("NODO:") > 1:
-                # Multiple nodes - hierarchical analysis
-                user_prompt = self._get_input_template('hierarchical_analysis').format(
-                    tree_data=tree_data,
-                    date=date_str
-                )
-            else:
-                # Single node - direct analysis  
-                user_prompt = self._get_input_template('single_node_analysis').format(
-                    tree_data=tree_data,
-                    date=date_str
-                )
-            
-            message_history.create_and_add_message(
-                content=user_prompt,
-                message_type=MessageType.USER
-            )
-            
-            # DYNAMIC STEP-BY-STEP HIERARCHICAL ANALYSIS
-            applicable_steps = self._get_applicable_steps_for_segment(segment or 'Global')
-            self.logger.info(f"🔄 Starting hierarchical interpretation for segment '{segment or 'Global'}' with {len(applicable_steps)} applicable steps: {applicable_steps}")
-            
-            # Execute only applicable steps
-            for step_num, step_key in enumerate(applicable_steps, 1):
-                step_prompt = None
-                # Look for step prompts in hierarchical helpers
-                step_prompt = self._get_hierarchical_helper(step_key)
-                
-                if step_prompt:
-                    self.logger.debug(f"📋 Applying {step_key}")
-                    
-                    # Add step guidance
-                    message_history.create_and_add_message(
-                        content=f"🎯 **PASO {step_num}:** {step_prompt}",
-                        message_type=MessageType.USER
-                    )
-                    
-                    # Get AI response for this step
-                    response, _, _ = await self.agent.invoke(messages=message_history.get_messages())
-                    message_history.add_message(response)
-                    
-                    self.logger.debug(f"✅ Step {step_num} completed")
-            
-            # STEP 5: FINAL SYNTHESIS with hybrid structure
-            self.logger.info("📊 Applying final executive synthesis with hybrid structure...")
-            
-            # Get step5_executive_synthesis from hierarchical helpers
-            final_synthesis_prompt = self._get_hierarchical_helper('step5_executive_synthesis')
-            
-            if final_synthesis_prompt:
-                # Replace the placeholder with dynamic cabin sections
-                cabin_sections = self._get_cabin_sections_for_segment(segment or 'Global')
-                final_synthesis_prompt = final_synthesis_prompt.replace('{CABIN_SECTIONS}', cabin_sections)
-                
-                message_history.create_and_add_message(
-                    content=f"🎯 **PASO 5 - SÍNTESIS EJECUTIVA FINAL:** {final_synthesis_prompt}",
-                    message_type=MessageType.USER
-                )
-                
-                # Get final response with new hybrid structure
-                final_response, _, _ = await self.agent.invoke(messages=message_history.get_messages())
-                interpretation = final_response.content.strip()
-            else:
-                # If step5_executive_synthesis not found, use a simple fallback
-                fallback_prompt = '🎯 **SÍNTESIS EJECUTIVA FINAL:** Genera síntesis jerárquica con narrativa fluida + resúmenes concisos por cabina/radio.'
-                
-                message_history.create_and_add_message(
-                    content=fallback_prompt,
-                    message_type=MessageType.USER
-                )
-                
-                final_response, _, _ = await self.agent.invoke(messages=message_history.get_messages())
-                interpretation = final_response.content.strip()
-            
-            # Log desempeño metrics
-            execution_time = (datetime.now() - start_time).total_seconds()
-            self.logger.info(
-                f"✅ Hierarchical interpretation completed in {execution_time:.2f}s "
-                f"(Input: {self.agent.input_tokens}, Output: {self.agent.output_tokens} tokens)"
-            )
-            
-            # Export conversation for debugging
-            try:
-                if date:
-                    # For weekly analysis, we need to calculate the date range
-                    # If it's a single date, use it for both start and end
-                    # If it's a date range (contains "to" or "-"), parse it
-                    if " to " in date or " - " in date:
-                        # Parse date range
-                        if " to " in date:
-                            start_date, end_date = date.split(" to ")
-                        else:
-                            start_date, end_date = date.split(" - ")
-                        start_date = start_date.strip()
-                        end_date = end_date.strip()
-                    else:
-                        # Single date - use for both start and end
-                        start_date = date
-                        end_date = date
-                    
-                    self.export_conversation(
-                        start_date=start_date,
-                        end_date=end_date, 
-                        node_path=segment or "Global",
-                        tree_data=tree_data,
-                        interpretation_result=interpretation,
-                        study_mode=getattr(self, 'study_mode', 'unknown')
-                    )
-            except Exception as e:
-                self.logger.warning(f"⚠️ Failed to export interpreter conversation: {e}")
-            
-            return interpretation
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error during hierarchical interpretation: {e}")
-            raise
+        # Always use the conversational method that includes self-conversation
+        return await self.interpret_anomaly_tree_hierarchical(tree_data, date, segment)
 
     async def interpret_anomaly_tree_hierarchical(self, tree_data: str, date: Optional[str] = None, segment: Optional[str] = None) -> str:
         """
@@ -476,8 +343,7 @@ class AnomalyInterpreterAgent:
                 message_type=MessageType.SYSTEM
             )
             
-            # Step 1: Provide all context to the model silently.
-            # This prompt asks the model to process the information and wait.
+            # Step 1: Provide all context to the model and get acknowledgment
             context_message = self._get_input_template('hierarchical_context_setup').format(
                 tree_data=tree_data,
                 date=date if date else 'No especificada'
@@ -491,13 +357,15 @@ class AnomalyInterpreterAgent:
                 'date': date
             })
 
-            # The initial call is just to load context, we can model this as a simple "ACK" from the AI.
-            message_history.create_and_add_message(
-                content="Contexto recibido. Espero la primera instrucción de análisis.",
-                message_type=MessageType.AI,
-                agent=self.agent
-            )
-            self.conversation_tracker.log_message("CONTEXT_ACKNOWLEDGED", "Contexto recibido.", {})
+            # Get AI acknowledgment of context
+            context_response, _, _ = await self.agent.invoke(messages=message_history.get_messages())
+            message_history.add_message(context_response)
+            
+            self.conversation_tracker.log_message("CONTEXT_ACKNOWLEDGED", context_response.content, {
+                'response_length': len(context_response.content)
+            })
+            
+            self.logger.info(f"💭 Context acknowledged: {context_response.content[:100]}...")
 
             # Determine applicable steps dynamically using the provided segment
             detected_segment = segment if segment else self._extract_primary_segment_from_data(tree_data)
@@ -541,6 +409,8 @@ class AnomalyInterpreterAgent:
                     'prompt_length': len(helper_prompt)
                 })
                 
+                self.logger.info(f"💬 Asking AI: {helper_prompt[:100]}...")
+                
                 # Get AI response for this step
                 step_response, _, _ = await self.agent.invoke(
                     messages=message_history.get_messages()
@@ -559,7 +429,8 @@ class AnomalyInterpreterAgent:
                     'response_length': len(step_content)
                 })
                 
-                self.logger.info(f"💭 {step_name} reflection captured ({len(step_content)} chars)")
+                self.logger.info(f"💭 AI Response for {step_name}: {step_content[:150]}...")
+                self.logger.info(f"✅ {step_name} completed ({len(step_content)} chars)")
             
             # Compile final response from all steps
             final_interpretation = self._compile_final_interpretation(
