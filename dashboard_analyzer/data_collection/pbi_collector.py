@@ -915,17 +915,20 @@ class PBIDataCollector:
             'TREATAS({"SH","LH"}, \'Haul_Master\'[Haul_Aggr])',
             f'TREATAS({{"{hauls_str}"}}, \'Haul_Master\'[Haul_Aggr])'
         ).replace(
-            '\'Date_Master\'[Date] =date(2025,05,12)',
-            f'\'Date_Master\'[Date] >= date({start_date.year},{start_date.month},{start_date.day}) && \'Date_Master\'[Date] <= date({end_date.year},{end_date.month},{end_date.day})'
-        ).replace(
             '__COMPARISON_FILTER__',
             comparison_filter or ""
         ).replace(
-            '__CURRENT_YEAR__', str(start_date.year)
+            '__START_YEAR__', str(start_date.year)
         ).replace(
-            '__CURRENT_MONTH__', str(start_date.month)
+            '__START_MONTH__', str(start_date.month)
         ).replace(
-            '__CURRENT_DAY__', str(start_date.day)
+            '__START_DAY__', str(start_date.day)
+        ).replace(
+            '__END_YEAR__', str(end_date.year)
+        ).replace(
+            '__END_MONTH__', str(end_date.month)
+        ).replace(
+            '__END_DAY__', str(end_date.day)
         )
         
         # Handle vs Sel. Period logic like in other queries

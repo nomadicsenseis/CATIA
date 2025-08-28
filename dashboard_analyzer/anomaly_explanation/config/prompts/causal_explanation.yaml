@@ -337,7 +337,7 @@ tools_prompts:
 
         🎯 **ANÁLISIS COMPLETADO**: Se identificaron las rutas específicas afectadas por problemas operativos.
 
-        **PRÓXIMO PASO**: Ejecuta `customer_profile_tool` para analizar el impacto por perfil de cliente.
+        **PRÓXIMO PASO**: Ejecuta `customer_profile_tool` para analizar el impacto por perfil de cliente filtrando por las rutas específicas afectadas.
 
         **OBJETIVO**: Entender qué perfiles de cliente dentro del segmento reaccionaron con mayor intensidad a los problemas operativos identificados.
 
@@ -346,7 +346,7 @@ tools_prompts:
 
         🎯 **ANÁLISIS COMPLETADO**: Se identificaron las rutas específicas afectadas por problemas de producto.
 
-        **PRÓXIMO PASO**: Ejecuta `customer_profile_tool` para analizar el impacto por perfil de cliente.
+        **PRÓXIMO PASO**: Ejecuta `customer_profile_tool` para analizar el impacto por perfil de cliente filtrando por las rutas específicas afectadas.
 
         **OBJETIVO**: Entender qué perfiles de cliente dentro del segmento reaccionaron con mayor intensidad a los problemas de producto identificados.
 
@@ -355,20 +355,20 @@ tools_prompts:
 
         🎯 **ANÁLISIS COMPLETADO**: Se identificaron las rutas específicas afectadas por problemas operativos.
 
-        **PRÓXIMO PASO**: Ejecuta `customer_profile_tool` para analizar el impacto por perfil de cliente.
+        **PRÓXIMO PASO**: Ejecuta `customer_profile_tool` para analizar el impacto por perfil de cliente filtrando por las rutas específicas afectadas.
 
         **OBJETIVO**: Entender qué perfiles de cliente dentro del segmento reaccionaron con mayor intensidad a los problemas operativos identificados.
 
     single: |
       **ANÁLISIS COMPLETADO**: Se identificaron las rutas específicas con mayor impacto en el NPS del día.
 
-      **PRÓXIMO PASO**: Ejecuta `customer_profile_tool` para analizar el impacto por perfil de cliente.
+      **PRÓXIMO PASO**: Ejecuta `customer_profile_tool` para analizar el impacto por perfil de cliente filtrando por las rutas específicas afectadas.
 
       **OBJETIVO**: Entender qué perfiles de cliente dentro del segmento reaccionaron con mayor intensidad en este día.
 
   customer_profile_tool:
     comparative: |
-      **ANÁLISIS COMPLETADO**: Se analizó el impacto por perfil de cliente.
+      **ANÁLISIS COMPLETADO**: Se analizó el impacto por perfil de cliente sobre las principales rutas afectadas del segmento.
 
       **INVESTIGACIÓN COMPLETA**: Se han cumplido los tres objetivos principales:
       1. ✅ CAUSA TANGIBLE identificada
@@ -378,7 +378,7 @@ tools_prompts:
       **DECISIÓN**: TERMINAR la investigación.
 
     single: |
-      **ANÁLISIS COMPLETADO**: Se analizó el impacto por perfil de cliente.
+      **ANÁLISIS COMPLETADO**: Se analizó el impacto por perfil de cliente sobre las principales rutas afectadas del segmento.
 
       **INVESTIGACIÓN COMPLETA**: Se han cumplido los objetivos principales:
       1. ✅ FACTORES IDENTIFICADOS
