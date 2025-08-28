@@ -2549,18 +2549,22 @@ class CausalExplanationAgent:
                 
                 if connection_success:
                     try:
-                        # Get verbatims data for the specific period
-                        df = self.chatbot_collector.get_verbatims_data(
-                            start_date=start_date, 
-                            end_date=end_date, 
-                            node_path=node_path
+                        # Ask a focused question about the specific period
+                        question = f"What are the main customer complaints and issues during {start_date} to {end_date} for {node_path}? Focus on the most frequent and impactful problems mentioned by customers."
+                        
+                        answer_data = self.chatbot_collector.ask_chatbot_question(
+                            question=question,
+                            start_date=start_date,
+                            end_date=end_date,
+                            node_path=node_path,
+                            filters=self._get_chatbot_filters_from_node_path(node_path)
                         )
                         
-                        if df is not None and len(df) > 0:
-                            self.logger.info(f"📊 Retrieved {len(df)} verbatims for single period analysis")
+                        if answer_data and answer_data.get('answer'):
+                            self.logger.info(f"📊 Retrieved chatbot answer for single period analysis")
                             
-                            # Analyze verbatims for the specific period only
-                            result = await self._analyze_verbatims_single_period(df, node_path, start_date, end_date)
+                            # Analyze the chatbot response for the specific period
+                            result = self._analyze_chatbot_single_period_response(answer_data, node_path, start_date, end_date)
                             
                             # Store data
                             self.collected_data['verbatims'] = result
@@ -2656,47 +2660,147 @@ class CausalExplanationAgent:
             query_1 = self._generate_negative_routes_query(node_path)
             self.logger.info(f"💬 PREGUNTA 1 (Rutas más negativas): '{query_1}'")
             
-            df_1 = self.chatbot_collector.get_verbatims_data(
-                start_date=start_date, end_date=end_date, node_path=node_path,
-                verbatim_type="routes_negative", intelligent_query=query_1
+            # Use the real chatbot API with ask_chatbot_question
+            answer_data_1 = self.chatbot_collector.ask_chatbot_question(
+                question=query_1,
+                start_date=start_date,
+                end_date=end_date,
+                node_path=node_path,
+                filters=self._get_chatbot_filters_from_node_path(node_path)
             )
             
-            response_1 = self._analyze_single_chatbot_response(df_1, "rutas_negativas")
-            self.logger.info(f"🤖 RESPUESTA 1: {response_1}")
+            if answer_data_1 and answer_data_1.get('answer'):
+                response_1 = answer_data_1['answer']
+                self.logger.info(f"🤖 RESPUESTA 1: {response_1}")
+                
+                conversation.append({
+                    "round": 1,
+                    "question": query_1,
+                    "response": response_1,
+                    "answer_data": answer_data_1,
+                    "purpose": "rutas_negativas"
+                })
+                
+                # PREGUNTA 2: Comentarios representativos de cada ruta
+                query_2 = self._generate_representative_comments_query(node_path, response_1)
+                self.logger.info(f"💬 PREGUNTA 2 (Comentarios representativos): '{query_2}'")
+                
+                # Use the real chatbot API for the second question
+                answer_data_2 = self.chatbot_collector.ask_chatbot_question(
+                    question=query_2,
+                    start_date=start_date,
+                    end_date=end_date,
+                    node_path=node_path,
+                    filters=self._get_chatbot_filters_from_node_path(node_path)
+                )
+                
+                if answer_data_2 and answer_data_2.get('answer'):
+                    response_2 = answer_data_2['answer']
+                    self.logger.info(f"🤖 RESPUESTA 2: {response_2}")
+                    
+                    conversation.append({
+                        "round": 2,
+                        "question": query_2,
+                        "response": response_2,
+                        "answer_data": answer_data_2,
+                        "purpose": "comentarios_representativos"
+                    })
+                else:
+                    self.logger.warning("⚠️ No answer received for question 2")
+            else:
+                self.logger.warning("⚠️ No answer received for question 1")
             
-            conversation.append({
-                "round": 1,
-                "question": query_1,
-                "response": response_1,
-                "data_points": len(df_1),
-                "purpose": "rutas_negativas"
-            })
-            
-            # PREGUNTA 2: Comentarios representativos de cada ruta
-            query_2 = self._generate_representative_comments_query(node_path, response_1)
-            self.logger.info(f"💬 PREGUNTA 2 (Comentarios representativos): '{query_2}'")
-            
-            df_2 = self.chatbot_collector.get_verbatims_data(
-                start_date=start_date, end_date=end_date, node_path=node_path,
-                verbatim_type="representative_comments", intelligent_query=query_2
-            )
-            
-            response_2 = self._analyze_single_chatbot_response(df_2, "comentarios_representativos")
-            self.logger.info(f"🤖 RESPUESTA 2: {response_2}")
-            
-            conversation.append({
-                "round": 2,
-                "question": query_2,
-                "response": response_2,
-                "data_points": len(df_2),
-                "purpose": "comentarios_representativos"
-            })
+            # Store the conversation data
+            self.collected_data['verbatims_conversation'] = {
+                "conversation_log": conversation,
+                "verbatim_type": verbatim_type,
+                "node_path": node_path,
+                "date_range": f"{start_date} to {end_date}"
+            }
             
             return conversation
             
         except Exception as e:
-            self.logger.error(f"❌ Error en conversación chatbot: {e}")
+            self.logger.error(f"❌ Error in chatbot conversation: {e}")
             return []
+    
+    def _get_chatbot_filters_from_node_path(self, node_path: str) -> Dict:
+        """
+        Extract chatbot filters from node_path for the chatbot API
+        
+        Args:
+            node_path: The node path (e.g., "Global/LH/Business")
+            
+        Returns:
+            Dictionary with filters for the chatbot API
+        """
+        try:
+            filters = {}
+            
+            # Extract cabin information
+            if '/Business' in node_path:
+                filters['cabin'] = ['Business']
+            elif '/Premium' in node_path:
+                filters['cabin'] = ['Premium']
+            elif '/Economy' in node_path:
+                filters['cabin'] = ['Economy']
+            
+            # Extract haul information
+            if '/LH' in node_path:
+                filters['haul'] = ['LH']  # Long Haul
+            elif '/SH' in node_path:
+                filters['haul'] = ['SH']  # Short Haul
+            
+            # Extract company information
+            if '/IB' in node_path:
+                filters['fleet'] = ['IB']  # Iberia
+            elif '/YW' in node_path:
+                filters['fleet'] = ['YW']  # Air Europa
+            
+            return filters
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error extracting filters from node_path: {e}")
+            return {}
+    
+    def _analyze_chatbot_single_period_response(self, answer_data: Dict, node_path: str, start_date: str, end_date: str) -> str:
+        """
+        Analyze chatbot response for single period analysis
+        
+        Args:
+            answer_data: The chatbot response data
+            node_path: The node path being analyzed
+            start_date: Start date of the period
+            end_date: End date of the period
+            
+        Returns:
+            Formatted analysis result
+        """
+        try:
+            answer = answer_data.get('answer', 'No answer available')
+            tool_output = answer_data.get('toolOutput', 'No tool output available')
+            job_id = answer_data.get('jobId', 'No job ID')
+            
+            result = f"""📝 **ANÁLISIS DE VERBATIMS - PERÍODO ÚNICO**
+
+**Período Analizado:** {start_date} a {end_date}
+**Segmento:** {node_path}
+**Job ID:** {job_id}
+
+**Respuesta del Chatbot:**
+{answer}
+
+**Información Técnica:**
+{tool_output}
+
+**Resumen:** Durante el período {start_date} a {end_date}, el análisis del chatbot identificó los principales problemas y quejas de los clientes para {node_path}. Esta información proporciona contexto cualitativo sobre la experiencia del cliente durante este período específico.
+"""
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error analyzing chatbot single period response: {e}")
+            return f"Error analyzing chatbot response: {str(e)}"
     
     def _generate_negative_routes_query(self, node_path: str) -> str:
         """Generate query to identify routes with the most negative comments."""

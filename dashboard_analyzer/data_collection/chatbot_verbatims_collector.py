@@ -214,6 +214,156 @@ class ChatbotVerbatimsCollector:
         logger.warning("API requests not implemented - using PBI collector fallback")
         return None
     
+    def _ask_chatbot_question(self, question: str, date_range: Tuple[str, str], 
+                             node_path: str, filters: Optional[Dict] = None) -> Optional[str]:
+        """
+        Ask a question to the chatbot API and get a jobId for async processing
+        
+        Args:
+            question: The question to ask
+            date_range: Tuple with (start_date, end_date)
+            node_path: Node path for filtering
+            filters: Additional filters
+            
+        Returns:
+            jobId if successful, None otherwise
+        """
+        try:
+            if not self.token:
+                logger.warning("No JWT token available for chatbot question API")
+                return None
+            
+            # Validate token before making API call
+            if not self.ensure_valid_token():
+                logger.warning("JWT token is invalid or expired")
+                return None
+            
+            # Extract date range
+            start_date, end_date = date_range
+            
+            # Prepare question payload according to the new format
+            question_payload = {
+                "value": question,
+                "verbatimCol": "iag_mod_501_t_scrubbed",
+                "sessionId": f"session-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+                "filters": {
+                    "date_flight_local": [start_date, end_date]
+                }
+            }
+            
+            # Add additional filters if provided
+            if filters:
+                if 'haul' in filters:
+                    question_payload["filters"]["haul"] = filters['haul']
+                if 'cabin' in filters:
+                    question_payload["filters"]["cabin_in_surveyed_flight"] = filters['cabin']
+            
+            # Use the question endpoint
+            question_endpoint = "https://b8fktdca38.execute-api.eu-west-1.amazonaws.com/api/transformation/api/nps-chatbot/question"
+            
+            headers = {
+                "Authorization": f"Bearer {self.token}",
+                "Content-Type": "application/json",
+                "User-Agent": "CausalExplanationAgent/1.0"
+            }
+            
+            logger.info(f"🤖 Asking chatbot question: {question}")
+            logger.info(f"🌐 Making POST request to: {question_endpoint}")
+            
+            response = requests.post(
+                question_endpoint,
+                json=question_payload,
+                headers=headers,
+                timeout=30
+            )
+            
+            if response.status_code == 201:
+                try:
+                    data = response.json()
+                    job_id = data.get('jobId')
+                    if job_id:
+                        logger.info(f"✅ Question submitted successfully, jobId: {job_id}")
+                        return job_id
+                    else:
+                        logger.warning("Question API response missing jobId")
+                        return None
+                except Exception as e:
+                    logger.error(f"Error parsing question API response: {e}")
+                    return None
+            else:
+                logger.warning(f"Question API returned status {response.status_code}: {response.text}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error asking chatbot question: {e}")
+            return None
+    
+    def _get_chatbot_answer(self, job_id: str) -> Optional[Dict]:
+        """
+        Get the answer for a chatbot question using the jobId
+        
+        Args:
+            job_id: The jobId from the question submission
+            
+        Returns:
+            Answer data if available, None otherwise
+        """
+        try:
+            if not self.token:
+                logger.warning("No JWT token available for chatbot answer API")
+                return None
+            
+            # Validate token before making API call
+            if not self.ensure_valid_token():
+                logger.warning("JWT token is invalid or expired")
+                return None
+            
+            # Use the answer endpoint
+            answer_endpoint = f"https://b8fktdca38.execute-api.eu-west-1.amazonaws.com/api/transformation/api/nps-chatbot/question/{job_id}"
+            
+            headers = {
+                "Authorization": f"Bearer {self.token}",
+                "Content-Type": "application/json",
+                "User-Agent": "CausalExplanationAgent/1.0"
+            }
+            
+            logger.info(f"🔍 Getting chatbot answer for jobId: {job_id}")
+            
+            response = requests.get(
+                answer_endpoint,
+                headers=headers,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    
+                    # Check if we have a real answer
+                    answer = data.get('answer')
+                    error = data.get('error')
+                    
+                    if answer and answer != "null" and answer != None and str(answer).strip():
+                        logger.info(f"✅ Got chatbot answer for jobId: {job_id}")
+                        return data
+                    elif error and error != "null" and error != None:
+                        logger.error(f"❌ Chatbot error: {error}")
+                        return None
+                    else:
+                        logger.info(f"⏳ Still processing...")
+                        return None
+                        
+                except Exception as e:
+                    logger.error(f"Error parsing answer API response: {e}")
+                    return None
+            else:
+                logger.warning(f"Answer API returned status {response.status_code}: {response.text}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error getting chatbot answer: {e}")
+            return None
+    
     def _collect_from_chatbot_api(self, date_range: Tuple[str, str], node_path: str, 
                                  filters: Optional[Dict] = None) -> pd.DataFrame:
         """
@@ -240,24 +390,24 @@ class ChatbotVerbatimsCollector:
             # Extract date range
             start_date, end_date = date_range
             
-            # Prepare API request payload
+            # Prepare API request payload for verbatim endpoint
             api_payload = {
                 "start_date": start_date,
                 "end_date": end_date,
                 "node_path": node_path,
-                "filters": filters or {},
-                "verbatim_type": filters.get("verbatim_type") if filters else None
+                "filters": json.dumps(filters or {})
             }
             
             # Make API call to Iberia chatbot endpoint
             logger.info(f"🔗 Attempting chatbot API call for {node_path} from {start_date} to {end_date}")
             
-            # Use the real Iberia chatbot endpoint
-            chatbot_endpoint = "https://nps.chatbot.iberia.es/api/verbatims"
+            # Use the configured chatbot endpoint
+            chatbot_endpoint = os.getenv('CHATBOT_API_ENDPOINT', 'https://b8fktdca38.execute-api.eu-west-1.amazonaws.com/api/transformation/api/nps-chatbot/verbatim')
             
             # Make HTTP request to the real chatbot
             import requests
             import pandas as pd
+            import json
             
             headers = {
                 "Authorization": f"Bearer {self.token}",
@@ -269,9 +419,9 @@ class ChatbotVerbatimsCollector:
             logger.info(f"📋 Headers: {headers}")
             logger.info(f"📦 Payload: {api_payload}")
             
-            response = requests.post(
+            response = requests.get(
                 chatbot_endpoint,
-                json=api_payload,
+                params=api_payload,
                 headers=headers,
                 timeout=30
             )
@@ -280,7 +430,7 @@ class ChatbotVerbatimsCollector:
                 try:
                     # Check if response has content
                     if not response.text.strip():
-                        logger.warning("Chatbot API returned empty response")
+                        logger.warning("Chatbot API returned empty response - this is normal, will use PBI fallback")
                         return pd.DataFrame()
                     
                     data = response.json()
@@ -296,7 +446,7 @@ class ChatbotVerbatimsCollector:
                         return pd.DataFrame()
                         
                 except Exception as e:
-                    logger.error(f"Error parsing chatbot API response: {e}")
+                    logger.warning(f"Error parsing chatbot API response: {e} - this is normal, will use PBI fallback")
                     logger.debug(f"Raw response: {response.text[:200]}...")
                     return pd.DataFrame()
                     
@@ -305,14 +455,233 @@ class ChatbotVerbatimsCollector:
                 return pd.DataFrame()
                 
         except requests.exceptions.ConnectionError:
-            logger.error("❌ Connection error: Cannot connect to chatbot API")
+            logger.warning("⚠️ Connection error: Cannot connect to chatbot API - will use PBI fallback")
             return pd.DataFrame()
         except requests.exceptions.Timeout:
-            logger.error("❌ Timeout error: Chatbot API request timed out")
+            logger.warning("⚠️ Timeout error: Chatbot API request timed out - will use PBI fallback")
             return pd.DataFrame()
         except Exception as e:
-            logger.error(f"Error calling chatbot API: {e}")
+            logger.warning(f"⚠️ Error calling chatbot API: {e} - will use PBI fallback")
             return pd.DataFrame()
+    
+    def _ask_chatbot_question_with_filters(self, question: str, date_range: Tuple[str, str], 
+                                          node_path: str, filters: Optional[Dict] = None) -> Optional[Dict]:
+        """
+        Ask a question to the chatbot API with proper filters and get the full answer
+        
+        Args:
+            question: The question to ask
+            date_range: Tuple with (start_date, end_date)
+            node_path: Node path for filtering
+            filters: Additional filters (cabin, haul, route, etc.)
+            
+        Returns:
+            Full answer data if successful, None otherwise
+        """
+        try:
+            if not self.token:
+                logger.warning("No JWT token available for chatbot question API")
+                return None
+            
+            # Validate token before making API call
+            if not self.ensure_valid_token():
+                logger.warning("JWT token is invalid or expired")
+                return None
+            
+            # Extract date range
+            start_date, end_date = date_range
+            
+            # Prepare question payload with proper filters
+            question_payload = {
+                "value": question,
+                "verbatimCol": "iag_mod_501_t_scrubbed",
+                "sessionId": f"session-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+                "filters": {
+                    "date_flight_local": [start_date, end_date]
+                }
+            }
+            
+            # Add additional filters if provided
+            if filters:
+                # Map our filters to chatbot filter names
+                if 'cabin' in filters:
+                    question_payload["filters"]["cabin_in_surveyed_flight"] = filters['cabin']
+                if 'haul' in filters:
+                    question_payload["filters"]["haul"] = filters['haul']
+                if 'route' in filters:
+                    question_payload["filters"]["route"] = filters['route']
+                if 'fleet' in filters:
+                    question_payload["filters"]["fleet"] = filters['fleet']
+                if 'nps_category' in filters:
+                    question_payload["filters"]["nps_category"] = filters['nps_category']
+            
+            # Use the question endpoint
+            question_endpoint = "https://b8fktdca38.execute-api.eu-west-1.amazonaws.com/api/transformation/api/nps-chatbot/question"
+            
+            headers = {
+                "Authorization": f"Bearer {self.token}",
+                "Content-Type": "application/json",
+                "User-Agent": "CausalExplanationAgent/1.0"
+            }
+            
+            logger.info(f"🤖 Asking chatbot question: {question}")
+            logger.info(f"🌐 Making POST request to: {question_endpoint}")
+            logger.info(f"📦 Filters: {question_payload['filters']}")
+            
+            response = requests.post(
+                question_endpoint,
+                json=question_payload,
+                headers=headers,
+                timeout=30
+            )
+            
+            if response.status_code == 201:
+                try:
+                    data = response.json()
+                    job_id = data.get('jobId')
+                    if job_id:
+                        logger.info(f"✅ Question submitted successfully, jobId: {job_id}")
+                        
+                        # Wait for the answer
+                        return self._wait_for_chatbot_answer(job_id, headers)
+                    else:
+                        logger.warning("Question API response missing jobId")
+                        return None
+                except Exception as e:
+                    logger.error(f"Error parsing question API response: {e}")
+                    return None
+            else:
+                logger.warning(f"Question API returned status {response.status_code}: {response.text}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error asking chatbot question: {e}")
+            return None
+    
+    def _wait_for_chatbot_answer(self, job_id: str, headers: Dict, max_wait_time: int = 300) -> Optional[Dict]:
+        """
+        Wait for chatbot answer with polling
+        
+        Args:
+            job_id: The jobId from the question submission
+            headers: HTTP headers for the request
+            max_wait_time: Maximum time to wait in seconds
+            
+        Returns:
+            Answer data if available, None otherwise
+        """
+        import time
+        
+        answer_endpoint = f"https://b8fktdca38.execute-api.eu-west-1.amazonaws.com/api/transformation/api/nps-chatbot/question/{job_id}"
+        
+        start_time = time.time()
+        attempt = 0
+        
+        while time.time() - start_time < max_wait_time:
+            attempt += 1
+            logger.info(f"🔍 Getting chatbot answer for jobId: {job_id} (attempt {attempt})")
+            
+            try:
+                response = requests.get(
+                    answer_endpoint,
+                    headers=headers,
+                    timeout=30
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    
+                    # Check if we have an answer
+                    answer = data.get('answer')
+                    tool_output = data.get('toolOutput')
+                    error = data.get('error')
+                    
+                    if answer and answer != "null" and answer != None and str(answer).strip():
+                        logger.info(f"✅ Got chatbot answer for jobId: {job_id}")
+                        return data
+                    elif error and error != "null" and error != None:
+                        logger.error(f"❌ Chatbot error: {error}")
+                        return None
+                    else:
+                        logger.info(f"⏳ Still processing... (attempt {attempt})")
+                        
+                else:
+                    logger.warning(f"Answer API returned status {response.status_code}: {response.text}")
+                    
+            except Exception as e:
+                logger.error(f"Error getting chatbot answer: {e}")
+            
+            # Wait before next attempt - longer delays for chatbot processing
+            wait_time = min(10 + attempt * 5, 30)  # Increasing delay: 10, 15, 20, 25, 30, 30, 30...
+            logger.info(f"⏳ Waiting {wait_time} seconds...")
+            time.sleep(wait_time)
+        
+        logger.warning(f"⏰ Timeout after {max_wait_time} seconds waiting for answer")
+        return None
+    
+    def _wait_for_chatbot_answer_working(self, job_id: str, headers: Dict, max_wait_time: int = 120) -> Optional[Dict]:
+        """
+        Wait for chatbot answer with the working polling method
+        
+        Args:
+            job_id: The jobId from the question submission
+            headers: HTTP headers for the request
+            max_wait_time: Maximum time to wait in seconds
+            
+        Returns:
+            Answer data if available, None otherwise
+        """
+        import time
+        
+        answer_endpoint = f"https://b8fktdca38.execute-api.eu-west-1.amazonaws.com/api/transformation/api/nps-chatbot/question/{job_id}"
+        
+        start_time = time.time()
+        attempt = 0
+        
+        while time.time() - start_time < max_wait_time:
+            attempt += 1
+            logger.info(f"🔍 Getting chatbot answer for jobId: {job_id} (attempt {attempt})")
+            
+            try:
+                import requests
+                
+                response = requests.get(
+                    answer_endpoint,
+                    headers=headers,
+                    timeout=30
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    
+                    # Check if we have an answer
+                    answer = data.get('answer')
+                    tool_output = data.get('toolOutput')
+                    error = data.get('error')
+                    
+                    # Check if we have a real answer (not None and not "null")
+                    if answer is not None and answer != "null" and str(answer).strip():
+                        logger.info(f"✅ Got chatbot answer for jobId: {job_id}")
+                        return data
+                    elif error is not None and error != "null":
+                        logger.error(f"❌ Chatbot error: {error}")
+                        return None
+                    else:
+                        logger.info(f"⏳ Still processing... (attempt {attempt})")
+                        
+                else:
+                    logger.warning(f"Answer API returned status {response.status_code}: {response.text}")
+                    
+            except Exception as e:
+                logger.error(f"Error getting chatbot answer: {e}")
+            
+            # Wait before next attempt - very short delays for fast response
+            wait_time = min(3 + attempt * 2, 8)  # Increasing delay: 3, 5, 7, 8, 8, 8...
+            logger.info(f"⏳ Waiting {wait_time} seconds...")
+            time.sleep(wait_time)
+        
+        logger.warning(f"⏰ Timeout after {max_wait_time} seconds waiting for answer")
+        return None
     
     def collect_verbatims_for_period(self, date_range: Tuple[str, str], node_path: str,
                                    filters: Optional[Dict] = None) -> pd.DataFrame:
@@ -330,15 +699,17 @@ class ChatbotVerbatimsCollector:
         try:
             # Intentar obtener verbatims de la API del chatbot primero
             if self.ensure_valid_token(): # Use ensure_valid_token here
+                logger.info("🔗 Attempting to collect verbatims from chatbot API...")
                 verbatims_data = self._collect_from_chatbot_api(date_range, node_path, filters)
                 if not verbatims_data.empty:
-                    logger.info(f"✅ Collected {len(verbatims_data)} verbatims from chatbot API")
+                    logger.info(f"✅ Successfully collected {len(verbatims_data)} verbatims from chatbot API")
                     return verbatims_data
                 else:
-                    logger.warning("Chatbot API returned no data, falling back to PBI collector")
+                    logger.info("ℹ️ Chatbot API returned no data, using PBI collector fallback")
             
             # Fallback al Power BI collector
             if self.pbi_collector:
+                logger.info("🔄 Using PBI collector fallback for verbatims data...")
                 from datetime import datetime
                 start_dt = datetime.strptime(date_range[0], '%Y-%m-%d')
                 end_dt = datetime.strptime(date_range[1], '%Y-%m-%d')
@@ -354,12 +725,15 @@ class ChatbotVerbatimsCollector:
                     return pd.DataFrame()
                 
                 # Procesar verbatims
+                logger.info(f"🔧 Processing {len(verbatims_data)} verbatims with sentiment analysis and theme categorization...")
                 processed_verbatims = self._process_verbatims(verbatims_data)
                 
                 # Aplicar filtros si se especifican
                 if filters:
+                    logger.info(f"🔍 Applying filters: {filters}")
                     processed_verbatims = self._apply_filters(processed_verbatims, filters)
                 
+                logger.info(f"✅ Successfully processed {len(processed_verbatims)} verbatims")
                 return processed_verbatims
             else:
                 logger.error("No data source available (neither chatbot API nor PBI collector)")
@@ -630,8 +1004,14 @@ class ChatbotVerbatimsCollector:
         try:
             processed_df = verbatims_df.copy()
             
+            # Get the correct text column name
+            text_col = self._get_text_column(processed_df)
+            if not text_col:
+                logger.warning("No text column found for processing verbatims")
+                return processed_df
+            
             # Limpiar texto
-            processed_df['verbatim_text_clean'] = processed_df['verbatim_text'].apply(self._clean_text)
+            processed_df['verbatim_text_clean'] = processed_df[text_col].apply(self._clean_text)
             
             # Análisis de sentimiento
             sentiment_results = processed_df['verbatim_text_clean'].apply(self.analyze_sentiment)
@@ -787,13 +1167,27 @@ class ChatbotVerbatimsCollector:
             logger.info("🧪 Testing chatbot API connection...")
             
             # Make test API call
-            test_response = self._simulate_chatbot_api_call(test_payload)
+            import requests
+            
+            test_endpoint = "https://b8fktdca38.execute-api.eu-west-1.amazonaws.com/api/transformation/api/nps-chatbot/verbatim"
+            headers = {
+                "Authorization": f"Bearer {self.token}",
+                "Content-Type": "application/json",
+                "User-Agent": "CausalExplanationAgent/1.0"
+            }
+            
+            test_response = requests.get(
+                test_endpoint,
+                params={"start_date": "2025-01-01", "end_date": "2025-01-02", "node_path": "Global", "filters": "{}"},
+                headers=headers,
+                timeout=10
+            )
             
             # Check if we got a response (even if empty)
-            if test_response is not None:
+            if test_response.status_code in [200, 201]:
                 return True, "✅ Chatbot API connection successful"
             else:
-                return False, "❌ Chatbot API connection failed"
+                return False, f"❌ Chatbot API connection failed: {test_response.status_code}"
                 
         except Exception as e:
             logger.error(f"❌ Error testing chatbot connection: {e}")
@@ -811,7 +1205,7 @@ class ChatbotVerbatimsCollector:
                 "token_available": bool(self.token),
                 "token_expired": self.token_expired,
                 "connection_test": None,
-                "endpoint": os.getenv('CHATBOT_API_ENDPOINT', 'http://localhost:3000/api/verbatims')
+                "endpoint": os.getenv('CHATBOT_API_ENDPOINT', 'https://b8fktdca38.execute-api.eu-west-1.amazonaws.com/api/transformation/api/nps-chatbot/verbatim')
             }
             
             # Test connection if token is available
@@ -872,6 +1266,99 @@ class ChatbotVerbatimsCollector:
         except Exception as e:
             logger.error(f"Error getting verbatims data: {e}")
             return pd.DataFrame()  # Return empty DataFrame on error
+    
+    def ask_chatbot_question(self, question: str, start_date: str, end_date: str, node_path: str, 
+                            filters: Optional[Dict] = None) -> Optional[Dict]:
+        """
+        Ask a question to the chatbot and get the answer using the working format
+        
+        Args:
+            question: The question to ask
+            start_date: Start date in YYYY-MM-DD format
+            end_date: End date in YYYY-MM-DD format
+            node_path: Node path for filtering
+            filters: Additional filters (cabin, haul, route, etc.)
+            
+        Returns:
+            Answer data if successful, None otherwise
+        """
+        try:
+            if not self.token:
+                logger.warning("No JWT token available for chatbot question API")
+                return None
+            
+            # Validate token before making API call
+            if not self.ensure_valid_token():
+                logger.warning("JWT token is invalid or expired")
+                return None
+            
+            # Use the working format from the successful test
+            question_payload = {
+                "value": question,
+                "verbatimCol": "iag_mod_501_t_scrubbed",  # This is the working verbatimCol
+                "sessionId": f"session-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+                "filters": {
+                    "date_flight_local": [start_date, end_date]
+                }
+            }
+            
+            # Add additional filters if provided
+            if filters:
+                if 'cabin' in filters:
+                    question_payload["filters"]["cabin_in_surveyed_flight"] = filters['cabin']
+                if 'haul' in filters:
+                    question_payload["filters"]["haul"] = filters['haul']
+                if 'route' in filters:
+                    question_payload["filters"]["route"] = filters['route']
+                if 'fleet' in filters:
+                    question_payload["filters"]["fleet"] = filters['fleet']
+                if 'nps_category' in filters:
+                    question_payload["filters"]["nps_category"] = filters['nps_category']
+            
+            # Use the question endpoint
+            question_endpoint = "https://b8fktdca38.execute-api.eu-west-1.amazonaws.com/api/transformation/api/nps-chatbot/question"
+            
+            import requests
+            
+            headers = {
+                "Authorization": f"Bearer {self.token}",
+                "Content-Type": "application/json",
+                "User-Agent": "CausalExplanationAgent/1.0"
+            }
+            
+            logger.info(f"🤖 Asking chatbot question: {question}")
+            logger.info(f"🌐 Making POST request to: {question_endpoint}")
+            logger.info(f"📦 Filters: {question_payload['filters']}")
+            
+            response = requests.post(
+                question_endpoint,
+                json=question_payload,
+                headers=headers,
+                timeout=30
+            )
+            
+            if response.status_code == 201:
+                try:
+                    data = response.json()
+                    job_id = data.get('jobId')
+                    if job_id:
+                        logger.info(f"✅ Question submitted successfully, jobId: {job_id}")
+                        
+                        # Wait for the answer using the working method with very short timeout for fast response
+                        return self._wait_for_chatbot_answer_working(job_id, headers, max_wait_time=30)
+                    else:
+                        logger.warning("Question API response missing jobId")
+                        return None
+                except Exception as e:
+                    logger.error(f"Error parsing question API response: {e}")
+                    return None
+            else:
+                logger.warning(f"Question API returned status {response.status_code}: {response.text}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error asking chatbot question: {e}")
+            return None
 
     def _apply_intelligent_query_filter(self, df: pd.DataFrame, intelligent_query: str) -> pd.DataFrame:
         """
