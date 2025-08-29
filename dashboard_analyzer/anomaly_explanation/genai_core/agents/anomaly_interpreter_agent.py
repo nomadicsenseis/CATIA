@@ -399,6 +399,11 @@ class AnomalyInterpreterAgent:
                 # Get helper prompt for this step
                 helper_prompt = self._get_hierarchical_helper(step_key)
                 
+                # For executive synthesis, replace CABIN_SECTIONS placeholder with dynamic content
+                if step_key == 'step5_executive_synthesis':
+                    cabin_sections = self._get_cabin_sections_for_segment(detected_segment)
+                    helper_prompt = helper_prompt.replace('{CABIN_SECTIONS}', cabin_sections)
+                
                 message_history.create_and_add_message(
                     content=helper_prompt,
                     message_type=MessageType.USER
